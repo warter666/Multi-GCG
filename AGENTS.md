@@ -28,6 +28,9 @@ Purpose: mechanism validation on local fakes. **Not** a tool for attacking real 
 - **State the filter policy with every number.** `--filter none` is an unguarded result. The
   guards are the point of the scenario: a payload that only works without them has proved
   nothing about a deployment.
+- **A rate needs a denominator that varies the body.** Greedy decoding makes repeated runs of
+  the same body identical, so "n runs" is not n samples. Count across search checkpoints,
+  tasks and families, and name the conditions instead of quoting one percentage.
 
 ## Safety boundaries
 

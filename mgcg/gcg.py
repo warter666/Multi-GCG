@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import torch
 
-from .layout import Layout, loss_from_logits, margin_tensor
+from .layout import Layout, adv_nll_from_logits, loss_from_logits, margin_tensor
 
 
 @dataclass
@@ -34,29 +34,42 @@ class GCGConfig:
     margin_weight: float = 1.0
     alpha: float = 1.0       # power-law exponent; larger biases harder toward the head
     power_law: bool = True
+    # Fluency penalty. 0 disables it, which reproduces the unconstrained search. Positive
+    # values push the payload toward text the model would write itself, which is the only
+    # way it can pass a perplexity gate.
+    ppl_weight: float = 0.0
 
 
-def objective(logits, layout: Layout, cfg: GCGConfig):
+def objective(logits, layout: Layout, cfg: GCGConfig, adv_ids=None):
     """Return a differentiable scalar objective (lower is better)."""
     nll = loss_from_logits(logits, layout)
     if cfg.objective == "nll":
-        return nll
-    m = margin_tensor(logits, layout)
-    if cfg.objective == "margin":
-        return -m
-    return nll - float(cfg.margin_weight) * m
+        obj = nll
+    elif cfg.objective == "margin":
+        obj = -margin_tensor(logits, layout)
+    else:
+        obj = nll - float(cfg.margin_weight) * margin_tensor(logits, layout)
+    if cfg.ppl_weight:
+        if adv_ids is None:
+            raise ValueError("ppl_weight is set but no adv ids were passed")
+        obj = obj + float(cfg.ppl_weight) * adv_nll_from_logits(logits, layout, adv_ids)
+    return obj
 
 
-def objective_from(nll: float, margin: float, cfg: GCGConfig) -> float:
+def objective_from(nll: float, margin: float, cfg: GCGConfig, adv_nll: float = 0.0) -> float:
     if cfg.objective == "nll":
-        return nll
-    if cfg.objective == "margin":
-        return -margin
-    return nll - float(cfg.margin_weight) * margin
+        obj = nll
+    elif cfg.objective == "margin":
+        obj = -margin
+    else:
+        obj = nll - float(cfg.margin_weight) * margin
+    if cfg.ppl_weight:
+        obj = obj + float(cfg.ppl_weight) * adv_nll
+    return obj
 
 
 def token_gradients(model, W: torch.Tensor, layout: Layout, adv_ids: torch.Tensor, cfg: GCGConfig):
-    """Return (gradient per position [L, V], nll, margin)."""
+    """Return (gradient per position [L, V], nll, margin, adv_nll)."""
     L = int(adv_ids.numel())
     V = int(W.size(0))
 
@@ -66,14 +79,15 @@ def token_gradients(model, W: torch.Tensor, layout: Layout, adv_ids: torch.Tenso
 
     emb = layout.assemble(one_hot @ W, W)              # [1, T, D]
     logits = model(inputs_embeds=emb, use_cache=False).logits
-    loss = objective(logits, layout, cfg)
+    loss = objective(logits, layout, cfg, adv_ids)
     loss.backward()
 
     with torch.no_grad():
         nll = float(loss_from_logits(logits, layout))
         marg = float(margin_tensor(logits, layout))
+        adv_nll = float(adv_nll_from_logits(logits, layout, adv_ids))
 
-    return one_hot.grad.detach(), nll, marg
+    return one_hot.grad.detach(), nll, marg, adv_nll
 
 
 @torch.no_grad()
@@ -99,7 +113,7 @@ def batch_objective(
         )
         logits = model(inputs_embeds=emb, use_cache=False).logits
         for j in range(c.size(0)):
-            out.append(float(objective(logits[j : j + 1], layout, cfg)))
+            out.append(float(objective(logits[j : j + 1], layout, cfg, c[j])))
     return out
 
 
@@ -138,10 +152,13 @@ def run_gcg(
     adv = adv_ids.clone()
     L = int(adv.numel())
 
-    grad, nll, marg = token_gradients(model, W, layout, adv, cfg)
-    cur = objective_from(nll, marg, cfg)
-    history = [{"step": 0, "nll": nll, "margin": marg, "obj": cur, "accepted": False}]
-    log(f"[gcg] start nll={nll:.4f} margin={marg:+.4f} obj={cur:.4f}")
+    grad, nll, marg, adv_nll = token_gradients(model, W, layout, adv, cfg)
+    cur = objective_from(nll, marg, cfg, adv_nll)
+    history = [{
+        "step": 0, "nll": nll, "margin": marg, "adv_nll": adv_nll,
+        "obj": cur, "accepted": False,
+    }]
+    log(f"[gcg] start nll={nll:.4f} margin={marg:+.4f} ppl={adv_nll:.4f} obj={cur:.4f}")
 
     for step in range(1, cfg.steps + 1):
         K = min(cfg.top_k, grad.size(-1))
@@ -166,16 +183,19 @@ def run_gcg(
             adv = cands[best_i].clone()
             cur = best_val
 
-        # Recompute gradients after every acceptance (and read back nll / margin).
-        grad, nll, marg = token_gradients(model, W, layout, adv, cfg)
-        row = {"step": step, "nll": nll, "margin": marg, "obj": cur, "accepted": accepted}
+        # Recompute gradients after every acceptance (and read back nll / margin / ppl).
+        grad, nll, marg, adv_nll = token_gradients(model, W, layout, adv, cfg)
+        row = {
+            "step": step, "nll": nll, "margin": marg, "adv_nll": adv_nll,
+            "obj": cur, "accepted": accepted,
+        }
         history.append(row)
         if on_accept and accepted:
             on_accept(row, adv)
         if step % 5 == 0 or accepted:
             log(
                 f"[gcg] step={step:03d} nll={nll:.4f} margin={marg:+.4f} "
-                f"obj={cur:.4f} {'accept' if accepted else 'no'}"
+                f"ppl={adv_nll:.4f} obj={cur:.4f} {'accept' if accepted else 'no'}"
             )
 
     return adv, cur, history

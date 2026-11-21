@@ -107,3 +107,25 @@ def margin_tensor(logits, layout: Layout):
 
 def margin_from_logits(logits, layout: Layout) -> float:
     return float(margin_tensor(logits, layout))
+
+
+def adv_nll_from_logits(logits, layout: Layout, adv_ids):
+    """In-context NLL of the payload itself: how surprised the model is by its own adv tokens.
+
+    Token p of the adv is predicted by the logits at position p - 1, so the span starts at
+    `B - 1`: the last pinned token predicts the first adv token. This is the differentiable
+    analogue of the perplexity gate. The gate scores the body as bare text; this scores it in
+    the slot where it actually sits, which is the only version a gradient can reach.
+
+    Keep this term separate from the target loss. Mixing them with one weight hides the
+    trade-off: the payload can then become fluent by giving up the call.
+    """
+    import torch
+
+    B = int(layout.before_ids.numel())
+    L = int(layout.adv_len)
+    if L == 0:
+        raise ValueError("layout has no adv span")
+    lg = logits[:, B - 1 : B + L - 1, :].float()
+    logp = torch.log_softmax(lg, dim=-1)
+    return -logp.gather(-1, adv_ids.view(1, -1, 1)).squeeze(-1).mean()

@@ -18,7 +18,8 @@ import torch
 from mgcg.families import FAMILIES, SECRET, build_layout
 from mgcg.gate import gate
 from mgcg.gcg import GCGConfig, init_adv, objective_from, run_gcg
-from mgcg.layout import loss_from_logits, margin_from_logits
+from mgcg.harness import filters
+from mgcg.layout import adv_nll_from_logits, loss_from_logits, margin_from_logits
 from mgcg.model import load_model
 from mgcg.verify import failure_kind, verify
 
@@ -38,10 +39,14 @@ def generate(tok, model, ids, max_new_tokens: int) -> str:
 
 @torch.no_grad()
 def probe(model, W, layout, adv):
-    """Return (nll, margin) for the current adv."""
+    """Return (nll, margin, adv_nll) for the current adv."""
     emb = layout.assemble(W[adv], W)
     logits = model(inputs_embeds=emb, use_cache=False).logits
-    return float(loss_from_logits(logits, layout)), float(margin_from_logits(logits, layout))
+    return (
+        float(loss_from_logits(logits, layout)),
+        float(margin_from_logits(logits, layout)),
+        float(adv_nll_from_logits(logits, layout, adv)),
+    )
 
 
 def main() -> int:
@@ -60,6 +65,8 @@ def main() -> int:
     ap.add_argument("--objective", default="nll", choices=["nll", "margin", "both"])
     ap.add_argument("--margin-weight", type=float, default=1.0)
     ap.add_argument("--alpha", type=float, default=1.0, help="power-law exponent")
+    ap.add_argument("--ppl-weight", type=float, default=0.0,
+                    help="weight of the payload-fluency penalty; 0 = unconstrained search")
     ap.add_argument("--no-power-law", action="store_true", help="fall back to uniform rank sampling")
     ap.add_argument(
         "--target-mode",
@@ -105,8 +112,8 @@ def main() -> int:
         return 2
 
     adv = init_adv(tok, args.adv_len, dev, args.seed)
-    base_nll, base_m = probe(model, W, layout, adv)
-    print(f"[baseline] nll={base_nll:.4f} margin={base_m:+.4f}")
+    base_nll, base_m, base_p = probe(model, W, layout, adv)
+    print(f"[baseline] nll={base_nll:.4f} margin={base_m:+.4f} ppl={base_p:.4f}")
 
     cfg = GCGConfig(
         steps=args.steps,
@@ -119,6 +126,7 @@ def main() -> int:
         margin_weight=args.margin_weight,
         alpha=args.alpha,
         power_law=not args.no_power_law,
+        ppl_weight=args.ppl_weight,
     )
 
     run_dir = os.path.join(args.out, f"{fam.key}-{int(time.time())}")
@@ -138,9 +146,14 @@ def main() -> int:
     if not hist:
         with open(events_path, "a", encoding="utf-8") as f:
             f.write(json.dumps({"step": 0, "nll": base_nll, "margin": base_m,
-                                "adv_ids": adv.tolist()}, ensure_ascii=False) + "\n")
+                                "adv_nll": base_p, "adv_ids": adv.tolist()},
+                               ensure_ascii=False) + "\n")
 
-    fin_nll, fin_m = probe(model, W, layout, best)
+    fin_nll, fin_m, fin_p = probe(model, W, layout, best)
+    adv_text = tok.decode(best)
+    # The gate scores the payload as bare text; the loss scores it in the slot. Both are
+    # reported, because they are not the same number and the gap is the interesting part.
+    bare_ppl = float(filters.text_nll(tok, model, adv_text, dev))
 
     # Generate for real: context stops at the assistant header, the target text is not included.
     start = layout.targets[0].start
@@ -158,8 +171,10 @@ def main() -> int:
     print(f"nll:    {base_nll:.4f} -> {fin_nll:.4f}")
     print(f"margin: {base_m:+.4f} -> {fin_m:+.4f}  "
           f"({'target is the greedy winner' if fin_m > 0 else 'still not the winner'})")
-    print(f"obj:    {objective_from(base_nll, base_m, cfg):.4f} -> "
-          f"{objective_from(fin_nll, fin_m, cfg):.4f}  ({time.time() - t0:.1f}s)")
+    print(f"ppl:    {base_p:.4f} -> {fin_p:.4f} in slot, {bare_ppl:.4f} as bare text "
+          f"(gate ceiling 9.00)")
+    print(f"obj:    {objective_from(base_nll, base_m, cfg, base_p):.4f} -> "
+          f"{objective_from(fin_nll, fin_m, cfg, fin_p):.4f}  ({time.time() - t0:.1f}s)")
     print(f"L1 {v['l1']}  {v['l1_why']}")
     print(f"L2 {v['l2']}  {v['l2_why']}")
     print(f"L3 {v['l3']}  {v['l3_why']}")
@@ -167,17 +182,18 @@ def main() -> int:
     print("\n---- generated ----")
     print(check_text.strip()[:800])
     print("\n---- adv span ----")
-    print(repr(tok.decode(best)))
+    print(repr(adv_text))
 
     rec = {
         "family": fam.key,
         "model": args.model,
         "config": {k: v for k, v in vars(args).items()},
         "gate": g,
-        "baseline": {"nll": base_nll, "margin": base_m},
-        "final": {"nll": fin_nll, "margin": fin_m},
+        "baseline": {"nll": base_nll, "margin": base_m, "adv_nll": base_p},
+        "final": {"nll": fin_nll, "margin": fin_m, "adv_nll": fin_p,
+                  "bare_nll": bare_ppl},
         "adv_ids": best.tolist(),
-        "adv_text": tok.decode(best),
+        "adv_text": adv_text,
         "target_text": target_text,
         "structural": structural,
         "generated": text,
@@ -190,7 +206,7 @@ def main() -> int:
     with open(os.path.join(run_dir, "result.json"), "w", encoding="utf-8") as f:
         json.dump(rec, f, ensure_ascii=False, indent=2)
     with open(os.path.join(run_dir, "adv.txt"), "w", encoding="utf-8") as f:
-        f.write(tok.decode(best))
+        f.write(adv_text)
     print(f"\n[run] {run_dir}")
     return 0 if v["breach"] else 1
 
