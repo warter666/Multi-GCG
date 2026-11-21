@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import time
+from dataclasses import replace
 
 import torch
 
@@ -67,6 +68,9 @@ def main() -> int:
     ap.add_argument("--alpha", type=float, default=1.0, help="power-law exponent")
     ap.add_argument("--ppl-weight", type=float, default=0.0,
                     help="weight of the payload-fluency penalty; 0 = unconstrained search")
+    ap.add_argument("--ppl-warm-frac", type=float, default=0.0,
+                    help="fraction of steps that hold the penalty at full weight before it "
+                         "decays linearly to zero; 0 keeps it constant")
     ap.add_argument("--no-power-law", action="store_true", help="fall back to uniform rank sampling")
     ap.add_argument(
         "--target-mode",
@@ -127,7 +131,12 @@ def main() -> int:
         alpha=args.alpha,
         power_law=not args.no_power_law,
         ppl_weight=args.ppl_weight,
+        ppl_warm_frac=args.ppl_warm_frac,
     )
+    if args.ppl_weight > 0 and args.ppl_warm_frac > 0:
+        hold = max(1, round(args.steps * args.ppl_warm_frac))
+        print(f"[schedule] w={args.ppl_weight:.2f} for {hold} step(s), "
+              f"then linear decay to 0 over the remaining {max(0, args.steps - hold)}")
 
     run_dir = os.path.join(args.out, f"{fam.key}-{int(time.time())}")
     os.makedirs(run_dir, exist_ok=True)
@@ -154,6 +163,7 @@ def main() -> int:
     # The gate scores the payload as bare text; the loss scores it in the slot. Both are
     # reported, because they are not the same number and the gap is the interesting part.
     bare_ppl = float(filters.text_nll(tok, model, adv_text, dev))
+    w_end = hist[-1]["w"] if hist else cfg.ppl_weight
 
     # Generate for real: context stops at the assistant header, the target text is not included.
     start = layout.targets[0].start
@@ -173,8 +183,9 @@ def main() -> int:
           f"({'target is the greedy winner' if fin_m > 0 else 'still not the winner'})")
     print(f"ppl:    {base_p:.4f} -> {fin_p:.4f} in slot, {bare_ppl:.4f} as bare text "
           f"(gate ceiling 9.00)")
-    print(f"obj:    {objective_from(base_nll, base_m, cfg, base_p):.4f} -> "
-          f"{objective_from(fin_nll, fin_m, cfg, fin_p):.4f}  ({time.time() - t0:.1f}s)")
+    print(f"obj:    {objective_from(base_nll, base_m, cfg, base_p):.4f} (w={cfg.ppl_weight:.2f})"
+          f" -> {objective_from(fin_nll, fin_m, replace(cfg, ppl_weight=w_end), fin_p):.4f} "
+          f"(w={w_end:.2f})  ({time.time() - t0:.1f}s)")
     print(f"L1 {v['l1']}  {v['l1_why']}")
     print(f"L2 {v['l2']}  {v['l2_why']}")
     print(f"L3 {v['l3']}  {v['l3_why']}")
@@ -191,7 +202,7 @@ def main() -> int:
         "gate": g,
         "baseline": {"nll": base_nll, "margin": base_m, "adv_nll": base_p},
         "final": {"nll": fin_nll, "margin": fin_m, "adv_nll": fin_p,
-                  "bare_nll": bare_ppl},
+                  "bare_nll": bare_ppl, "ppl_weight_end": w_end},
         "adv_ids": best.tolist(),
         "adv_text": adv_text,
         "target_text": target_text,

@@ -31,6 +31,9 @@ Purpose: mechanism validation on local fakes. **Not** a tool for attacking real 
 - **A rate needs a denominator that varies the body.** Greedy decoding makes repeated runs of
   the same body identical, so "n runs" is not n samples. Count across search checkpoints,
   tasks and families, and name the conditions instead of quoting one percentage.
+- **A missed hop 1 is not an optimization problem.** If the trace never reads the file the
+  payload lives in, the search has nothing to do with the failure. Fix the task so the read is
+  certain, then optimize the next hop. Check the trace's tool names before touching the recipe.
 
 ## Safety boundaries
 

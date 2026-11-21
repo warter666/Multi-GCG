@@ -15,7 +15,7 @@ discrete and not differentiable, so the gradient has to pass through the embeddi
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import torch
 
@@ -38,6 +38,23 @@ class GCGConfig:
     # values push the payload toward text the model would write itself, which is the only
     # way it can pass a perplexity gate.
     ppl_weight: float = 0.0
+    # Fraction of the budget that holds the penalty at full strength before it decays linearly
+    # to zero. 0 keeps it constant. The point of the schedule is path dependence: a payload
+    # that starts in the language manifold can move from there, while one that starts as noise
+    # gets worse every step.
+    ppl_warm_frac: float = 0.0
+
+
+def ppl_weight_at(step: int, cfg: GCGConfig) -> float:
+    """The penalty weight used at `step`. Constant unless a warm-up fraction is set."""
+    w0 = float(cfg.ppl_weight)
+    if w0 <= 0.0 or cfg.ppl_warm_frac <= 0.0 or cfg.steps <= 0:
+        return w0
+    hold = max(1, int(round(cfg.steps * float(cfg.ppl_warm_frac))))
+    if step <= hold or hold >= cfg.steps:
+        return w0
+    frac = (cfg.steps - step) / float(cfg.steps - hold)
+    return w0 * max(0.0, frac)
 
 
 def objective(logits, layout: Layout, cfg: GCGConfig, adv_ids=None):
@@ -152,15 +169,18 @@ def run_gcg(
     adv = adv_ids.clone()
     L = int(adv.numel())
 
-    grad, nll, marg, adv_nll = token_gradients(model, W, layout, adv, cfg)
-    cur = objective_from(nll, marg, cfg, adv_nll)
+    step_cfg = replace(cfg, ppl_weight=ppl_weight_at(0, cfg))
+    grad, nll, marg, adv_nll = token_gradients(model, W, layout, adv, step_cfg)
+    cur = objective_from(nll, marg, step_cfg, adv_nll)
     history = [{
         "step": 0, "nll": nll, "margin": marg, "adv_nll": adv_nll,
-        "obj": cur, "accepted": False,
+        "w": step_cfg.ppl_weight, "obj": cur, "accepted": False,
     }]
-    log(f"[gcg] start nll={nll:.4f} margin={marg:+.4f} ppl={adv_nll:.4f} obj={cur:.4f}")
+    log(f"[gcg] start nll={nll:.4f} margin={marg:+.4f} ppl={adv_nll:.4f} "
+        f"w={step_cfg.ppl_weight:.2f} obj={cur:.4f}")
 
     for step in range(1, cfg.steps + 1):
+        step_cfg = replace(cfg, ppl_weight=ppl_weight_at(step, cfg))
         K = min(cfg.top_k, grad.size(-1))
         topk = (-grad).topk(K, dim=-1).indices                       # [L, K]
 
@@ -174,7 +194,7 @@ def run_gcg(
         cands = adv.unsqueeze(0).repeat(cfg.batch, 1)
         cands[torch.arange(cfg.batch, device=device), pos] = chosen
 
-        vals = batch_objective(model, W, layout, cands, cfg.chunk, cfg)
+        vals = batch_objective(model, W, layout, cands, cfg.chunk, step_cfg)
         best_i = int(min(range(len(vals)), key=lambda i: vals[i]))
         best_val = vals[best_i]
 
@@ -184,10 +204,10 @@ def run_gcg(
             cur = best_val
 
         # Recompute gradients after every acceptance (and read back nll / margin / ppl).
-        grad, nll, marg, adv_nll = token_gradients(model, W, layout, adv, cfg)
+        grad, nll, marg, adv_nll = token_gradients(model, W, layout, adv, step_cfg)
         row = {
             "step": step, "nll": nll, "margin": marg, "adv_nll": adv_nll,
-            "obj": cur, "accepted": accepted,
+            "w": step_cfg.ppl_weight, "obj": cur, "accepted": accepted,
         }
         history.append(row)
         if on_accept and accepted:
@@ -195,7 +215,8 @@ def run_gcg(
         if step % 5 == 0 or accepted:
             log(
                 f"[gcg] step={step:03d} nll={nll:.4f} margin={marg:+.4f} "
-                f"ppl={adv_nll:.4f} obj={cur:.4f} {'accept' if accepted else 'no'}"
+                f"ppl={adv_nll:.4f} w={step_cfg.ppl_weight:.2f} obj={cur:.4f} "
+                f"{'accept' if accepted else 'no'}"
             )
 
     return adv, cur, history
