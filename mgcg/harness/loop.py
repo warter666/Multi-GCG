@@ -19,6 +19,7 @@ from typing import Any
 import torch
 
 from ..families import FAMILIES, SYSTEM
+from .. import carriers
 from ..model import load_model
 from ..verify import _balanced_json, l3_on_trace, l_target
 from . import filters
@@ -171,6 +172,8 @@ def main() -> int:
     # Optional: the call we are aiming at. Needed because a predicate can fire on a call the
     # model made on its own initiative; this pins the destination.
     ap.add_argument("--target-from", default=None, help="path to a target call, JSON")
+    # A carrier changes the characters the filter sees, not the tokens an optimizer chose.
+    ap.add_argument("--carrier", default="plain", choices=list(carriers.CARRIERS))
     ap.add_argument("--out", default="out")
     args = ap.parse_args()
 
@@ -190,6 +193,9 @@ def main() -> int:
 
     tok, model, W = load_model(args.model, args.device, args.dtype)
     device = next(model.parameters()).device
+
+    if args.carrier != "plain":
+        poison = carriers.apply(args.carrier, poison)
 
     # The input guard runs before the body reaches the model. A blocked body is replaced,
     # never silently dropped: the agent still reads a file, it just reads nothing useful.
@@ -251,7 +257,7 @@ def main() -> int:
         "model": args.model,
         "poison_origin": origin,
         "config": {"max_steps": args.max_steps, "max_new_tokens": args.max_new_tokens,
-                   "seed": args.seed},
+                   "seed": args.seed, "carrier": args.carrier},
         "filters": {
             "policy": args.filter,
             "ppl_max": args.ppl_max,
