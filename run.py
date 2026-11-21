@@ -68,6 +68,8 @@ def main() -> int:
         help="concrete = bake the runtime value in (offline approximation); "
         "structural = optimize only up to the field opening",
     )
+    ap.add_argument("--target-from", default=None,
+                    help="file with the exact call text the model emitted (concrete targets only)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--out", default="out")
     args = ap.parse_args()
@@ -79,8 +81,13 @@ def main() -> int:
     tok, model, W = load_model(args.model, args.device, args.dtype)
     dev = W.device
 
+    target_override = None
+    if args.target_from:
+        with open(args.target_from, encoding="utf-8") as f:
+            target_override = f.read().strip()
+
     layout, head, target_text, structural = build_layout(
-        fam, tok, args.adv_len, dev, mode=args.target_mode
+        fam, tok, args.adv_len, dev, mode=args.target_mode, target_override=target_override
     )
     print(f"[layout] before={layout.before_ids.numel()} adv={args.adv_len} after={layout.after_ids.numel()}")
     if structural:

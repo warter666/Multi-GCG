@@ -171,6 +171,12 @@ def main() -> int:
     os.makedirs(run_dir, exist_ok=True)
     trace.write_jsonl(os.path.join(run_dir, "trace.jsonl"))
 
+    # Raw assistant text, one JSON object per turn. This is what the elicitation step copies
+    # into a target file: never retype the call, the tokenizer must see the same bytes.
+    with open(os.path.join(run_dir, "assistant.jsonl"), "w", encoding="utf-8") as f:
+        for t in trace.assistant_messages:
+            f.write(json.dumps({"text": t}, ensure_ascii=False) + "\n")
+
     rec = {
         "family": fam.key,
         "model": args.model,

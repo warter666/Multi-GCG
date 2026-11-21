@@ -156,9 +156,15 @@ def render_target(fam: Family, mode: str = "auto", fill: str | None = None) -> t
 
 
 def build_layout(
-    fam: Family, tok, adv_len: int, device, mode: str = "auto", fill: str | None = None
+    fam: Family, tok, adv_len: int, device, mode: str = "auto", fill: str | None = None,
+    target_override: str | None = None,
 ):
-    """Build the Layout; returns (layout, text before the adv, target text, is_structural)."""
+    """Build the Layout; returns (layout, text before the adv, target text, is_structural).
+
+    `target_override` replaces the constructed target text with the exact text the model
+    emitted in the elicitation step. Do not type the target by hand: the tokenizer must see
+    the same bytes the model produces.
+    """
     import torch  # only this step needs torch
 
     from .layout import Layout, Span
@@ -177,6 +183,11 @@ def build_layout(
 
     tail_pre = fam.doc_suffix + "\nASSISTANT: "
     target_text, structural = render_target(fam, mode, fill)
+
+    if target_override:
+        if structural:
+            raise ValueError("target_override is for concrete targets only")
+        target_text = target_override
 
     before_ids = tok(head, return_tensors="pt").input_ids[0].to(device)
     tail_pre_ids = tok(tail_pre, return_tensors="pt", add_special_tokens=False).input_ids[0].to(device)

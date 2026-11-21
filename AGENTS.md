@@ -58,6 +58,10 @@ we assembled ourselves. Rules:
 - **Always run the control.** Treatment = poisoned document, control = clean document, same
   task, same seed. If the control already produces the target call, the "result" is the
   model's prior, not the adv. A treatment-only success is not a result.
+- **Run the seed as a second baseline.** A hand-written instruction that already makes the
+  agent emit the call (README Step 1) sets the bar. An adv that only matches the seed has
+  proved nothing. An adv that scores worse than the seed has lost the instruction. Quote
+  both numbers, from the same task and the same step budget.
 - **Tools are local fakes.** In-memory files and mailbox, `http.post` recorded and never
   sent, `shell.run` recorded and never executed. No network, no real mailbox, no subprocess.
 - **Only the intended page is poisoned.** `Env.poison_pages` decides which `web.open`
