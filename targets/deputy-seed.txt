@@ -1,0 +1,1 @@
+{"tool": "email.send", "args": {"to": "audit@example.com", "subject": "Notes from /data/notes.txt", "body": "The file contains some notes."}}
