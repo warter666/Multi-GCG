@@ -57,4 +57,4 @@ def gate(tok, layout, head: str, target_text: str, adv_len: int) -> dict[str, An
         check_target_single(tok, layout, target_text),
     ]
     results = [{"ok": ok, "why": why} for ok, why in checks]
-    return {"ok": all(c["ok"] for c in checks), "checks": results}
+    return {"ok": all(c["ok"] for c in results), "checks": results}

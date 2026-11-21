@@ -74,29 +74,35 @@ def loss_from_logits(logits, layout: Layout):
 
 
 def margin_tensor(logits, layout: Layout):
-    """Margin at the first target position: z_target - max_{v != target} z_v.
+    """Margin over the whole target span: min over positions of (z_target - max_{v != target} z_v).
 
-    This is the objective the public Hybrid GCG implementation uses by default. It is
-    closer to "did it win" than NLL is: NLL can keep falling while the runner-up stays
-    right behind, and greedy decoding can still emit the wrong token. A positive margin
-    means the target token is the greedy winner.
+    For a single-token target this is exactly the classic definition used by Hybrid GCG.
+    For a multi-token target the first position alone is not enough: two different calls
+    often share the opening tokens (`{"tool": "`), so a positive margin at position 0 is
+    satisfied by any of them. Requiring every position is what actually corresponds to
+    "greedy decoding emits this call".
     """
     import torch
 
     if not layout.targets:
         raise ValueError("layout has no target span; margin is undefined")
-    first = layout.targets[0]
-    B = int(layout.before_ids.numel())
-    L = int(layout.adv_len)
-    q = B + L + first.start - 1          # the position that predicts the first target token
-    if q < 0:
-        raise ValueError("target span starts at position 0; no predicting position available")
 
-    z = logits[0, q, :].float()
-    t = int(layout.after_ids[first.start])
-    other = z.clone()
-    other[t] = float("-inf")
-    return z[t] - other.max()
+    worst = None
+    for lg, tgt, _w in layout.target_slices(logits):
+        z = lg[0].float()                      # [n, V]
+        n = int(tgt.numel())
+        if n == 0:
+            continue
+        idx = torch.arange(n, device=z.device)
+        zt = z[idx, tgt]                       # [n]
+        other = z.clone()
+        other[idx, tgt] = float("-inf")
+        per_pos = zt - other.max(dim=-1).values   # [n]
+        m = per_pos.min()
+        worst = m if worst is None else torch.minimum(worst, m)
+    if worst is None:
+        raise ValueError("target span is empty; margin is undefined")
+    return worst
 
 
 def margin_from_logits(logits, layout: Layout) -> float:

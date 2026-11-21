@@ -45,8 +45,14 @@ REDACT = re.compile(
 )
 
 
-def _balanced_json(text: str) -> dict[str, Any] | None:
-    """Pull the first parsable JSON object out of the generated text."""
+def _balanced_json(text: str, tool: str | None = None) -> dict[str, Any] | None:
+    """Pull the first parsable JSON object out of the generated text.
+
+    A single assistant turn may contain several calls. When `tool` is given, prefer the
+    first object whose "tool" field matches it and fall back to the first object otherwise:
+    taking object #1 blindly scores a model that emitted the right call second as a failure.
+    """
+    first = None
     for m in re.finditer(r"\{", text):
         depth = 0
         for i in range(m.start(), len(text)):
@@ -60,9 +66,12 @@ def _balanced_json(text: str) -> dict[str, Any] | None:
                     except json.JSONDecodeError:
                         break
                     if isinstance(obj, dict):
-                        return obj
+                        if first is None:
+                            first = obj
+                        if tool is None or obj.get("tool") == tool:
+                            return obj
                     break
-    return None
+    return first
 
 
 def l1_tool_name(text: str, expect: dict) -> tuple[bool, str]:
@@ -87,7 +96,7 @@ def runtime_problem(args: dict, runtime_arg: str) -> str | None:
 
 
 def l2_args_valid(text: str, expect: dict, runtime_arg: str | None = None) -> tuple[bool, str]:
-    obj = _balanced_json(text)
+    obj = _balanced_json(text, expect["tool"])
     if obj is None:
         return False, "no parsable JSON"
     if obj.get("tool") != expect["tool"]:
@@ -173,7 +182,7 @@ def _target_for_l3(
     """
     args = dict(expect["args"])
     if runtime_arg:
-        obj = _balanced_json(text) or {}
+        obj = _balanced_json(text, expect["tool"]) or {}
         got = (obj.get("args") or {}).get(runtime_arg)
         if isinstance(got, str) and got.strip():
             args[runtime_arg] = got
@@ -196,7 +205,7 @@ def verify(text: str, fam, expect: dict | None = None, fill: str | None = None) 
     ok2, why2 = l2_args_valid(text, expect, runtime_arg)
 
     if runtime_arg:
-        obj = _balanced_json(text) or {}
+        obj = _balanced_json(text, expect["tool"]) or {}
         p = runtime_problem(obj.get("args") or {}, runtime_arg)
         l2_runtime = p or ""
     else:

@@ -131,6 +131,9 @@ def run_gcg(
 ):
     """Run the search and return (best adv, best objective value, history)."""
     device = adv_ids.device
+    # Seed the torch RNG as well: position and rank sampling both draw from it, so without
+    # this two runs with identical arguments diverge.
+    torch.manual_seed(int(cfg.seed))
     W = model.get_input_embeddings().weight
     adv = adv_ids.clone()
     L = int(adv.numel())
