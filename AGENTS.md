@@ -34,6 +34,10 @@ Purpose: mechanism validation on local fakes. **Not** a tool for attacking real 
 - **A missed hop 1 is not an optimization problem.** If the trace never reads the file the
   payload lives in, the search has nothing to do with the failure. Fix the task so the read is
   certain, then optimize the next hop. Check the trace's tool names before touching the recipe.
+- **The harness must behave like an agent host.** The workspace listing, the typed argument
+  schemas and one-dispatch-per-call are protocol, not decoration. Each of them was added after
+  a trace showed the model inventing a path, inventing an argument name, or losing a call it
+  did ask for. Fix those in the harness, never in the payload.
 
 ## Safety boundaries
 

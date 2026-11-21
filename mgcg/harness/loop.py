@@ -28,13 +28,40 @@ from .trace import Event, Trace
 
 def parse_call(text: str) -> dict[str, Any] | None:
     """Return {tool, args} if the text contains a parsable call, else None."""
-    obj = _balanced_json(text)
-    if not isinstance(obj, dict) or "tool" not in obj:
-        return None
-    args = obj.get("args")
-    if not isinstance(args, dict):
-        args = {}
-    return {"tool": str(obj["tool"]), "args": args}
+    calls = parse_calls(text)
+    return calls[0] if calls else None
+
+
+def parse_calls(text: str) -> list[dict[str, Any]]:
+    """Return every parsable call in one turn, in order.
+
+    A real agent batches tool calls: one assistant turn can ask for two reads. Executing only
+    the first one drops work the model did ask for, which then looks like a reasoning failure.
+    Every balanced JSON object with a `tool` key counts.
+    """
+    out: list[dict[str, Any]] = []
+    for i, ch in enumerate(text):
+        if ch != "{":
+            continue
+        depth = 0
+        for j in range(i, len(text)):
+            if text[j] == "{":
+                depth += 1
+            elif text[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        obj = json.loads(text[i : j + 1])
+                    except Exception:  # noqa: BLE001
+                        break
+                    if isinstance(obj, dict) and "tool" in obj:
+                        args = obj.get("args")
+                        out.append(
+                            {"tool": str(obj["tool"]),
+                             "args": args if isinstance(args, dict) else {}}
+                        )
+                    break
+    return out
 
 
 @torch.no_grad()
@@ -52,16 +79,16 @@ def _generate(tok, model, ctx: str, max_new_tokens: int, device) -> str:
 
 
 def _step(tok, model, ctx: str, max_new_tokens: int, device):
-    """One assistant turn. Returns (text, call_or_None, updated_context).
+    """One assistant turn. Returns (text, calls, updated_context).
 
     A parse failure is retried exactly once with an explicit instruction; the retry is
     counted and, if it also fails, the episode ends with a recorded event rather than a
     silently skipped step.
     """
     text = _generate(tok, model, ctx, max_new_tokens, device)
-    call = parse_call(text)
-    if call is not None:
-        return text, call, ctx + "ASSISTANT: " + text.strip() + "\n"
+    calls = parse_calls(text)
+    if calls:
+        return text, calls, ctx + "ASSISTANT: " + text.strip() + "\n"
 
     nudge = (
         ctx
@@ -70,10 +97,10 @@ def _step(tok, model, ctx: str, max_new_tokens: int, device):
         + "\nUSER: Output exactly one line of JSON, nothing else.\n"
     )
     text2 = _generate(tok, model, nudge, max_new_tokens, device)
-    call2 = parse_call(text2)
-    if call2 is not None:
-        return text2, call2, nudge + "ASSISTANT: " + text2.strip() + "\n"
-    return text2, None, nudge
+    calls2 = parse_calls(text2)
+    if calls2:
+        return text2, calls2, nudge + "ASSISTANT: " + text2.strip() + "\n"
+    return text2, [], nudge
 
 
 def run_episode(tok, model, fam, poison: str, max_steps: int, max_new_tokens: int, seed: int = 0):
@@ -83,15 +110,15 @@ def run_episode(tok, model, fam, poison: str, max_steps: int, max_new_tokens: in
     env = Env(poison=poison)
     trace = Trace(user_messages=[fam.task])
 
-    ctx = SYSTEM + "\n\nUSER: " + fam.task + "\n"
+    ctx = SYSTEM + "\n\n" + env.manifest() + "\nUSER: " + fam.task + "\n"
     parse_failures = 0
     budget_exhausted = True
 
     for step in range(1, max_steps + 1):
-        text, call, ctx = _step(tok, model, ctx, max_new_tokens, device)
+        text, calls, ctx = _step(tok, model, ctx, max_new_tokens, device)
         trace.assistant_messages.append(text)
 
-        if call is None:
+        if not calls:
             parse_failures += 1
             trace.add(
                 Event(
@@ -107,13 +134,18 @@ def run_episode(tok, model, fam, poison: str, max_steps: int, max_new_tokens: in
             )
             break
 
-        event = env.dispatch(call)
-        trace.add(Event(**event))
-        ctx += f"TOOL[{event['name']}]: {event['output']}\n"
-
-        if event["name"] in ("email.send", "http.post", "fs.delete", "shell.run"):
-            # The agent has done the thing it was going to do; stop here.
-            budget_exhausted = False
+        # Every call the model asked for in this turn is executed, in order.
+        stop = False
+        for call in calls:
+            event = env.dispatch(call)
+            trace.add(Event(**event))
+            ctx += f"TOOL[{event['name']}]: {event['output']}\n"
+            if event["name"] in ("email.send", "http.post", "fs.delete", "shell.run"):
+                # The agent has done the thing it was going to do; stop here.
+                budget_exhausted = False
+                stop = True
+                break
+        if stop:
             break
 
     return trace, parse_failures, budget_exhausted
