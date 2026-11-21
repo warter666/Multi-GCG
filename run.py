@@ -20,6 +20,7 @@ from mgcg.families import FAMILIES, SECRET, build_layout
 from mgcg.gate import gate
 from mgcg.gcg import GCGConfig, init_adv, objective_from, run_gcg
 from mgcg.harness import filters
+from mgcg import invisible
 from mgcg.layout import adv_nll_from_logits, loss_from_logits, margin_from_logits
 from mgcg.model import load_model
 from mgcg.verify import failure_kind, verify
@@ -71,6 +72,8 @@ def main() -> int:
     ap.add_argument("--ppl-warm-frac", type=float, default=0.0,
                     help="fraction of steps that hold the penalty at full weight before it "
                          "decays linearly to zero; 0 keeps it constant")
+    ap.add_argument("--invisible-only", action="store_true",
+                    help="restrict the search to vocabulary ids that render as zero-width text")
     ap.add_argument("--no-power-law", action="store_true", help="fall back to uniform rank sampling")
     ap.add_argument(
         "--target-mode",
@@ -87,7 +90,6 @@ def main() -> int:
 
     fam = FAMILIES[args.family]
     print(f"[family] {fam.key} — {fam.title}")
-    print(f"[target] {json.dumps(fam.target, ensure_ascii=False)}")
 
     tok, model, W = load_model(args.model, args.device, args.dtype)
     dev = W.device
@@ -101,6 +103,9 @@ def main() -> int:
         fam, tok, args.adv_len, dev, mode=args.target_mode, target_override=target_override
     )
     print(f"[layout] before={layout.before_ids.numel()} adv={args.adv_len} after={layout.after_ids.numel()}")
+    # Print the target actually being optimised, not the family default: --target-from can
+    # replace it, and a stale line here makes the whole run look like it optimised something else.
+    print(f"[target] {target_text}")
     if structural:
         print(f"[structural] target contains the runtime variable `{fam.runtime_arg}`: "
               f"optimize only up to the field opening")
@@ -115,7 +120,14 @@ def main() -> int:
         print("[gate] gate failed, stopping. Fix build_layout; do not bypass the check.")
         return 2
 
-    adv = init_adv(tok, args.adv_len, dev, args.seed)
+    pool = None
+    mask = None
+    if args.invisible_only:
+        pool = invisible.invisible_ids(tok)
+        print(f"[carrier] {len(pool)} invisible ids of {tok.vocab_size}")
+        mask = invisible.as_mask(pool, tok.vocab_size, dev)
+
+    adv = init_adv(tok, args.adv_len, dev, args.seed, allowed=pool)
     base_nll, base_m, base_p = probe(model, W, layout, adv)
     print(f"[baseline] nll={base_nll:.4f} margin={base_m:+.4f} ppl={base_p:.4f}")
 
@@ -132,6 +144,7 @@ def main() -> int:
         power_law=not args.no_power_law,
         ppl_weight=args.ppl_weight,
         ppl_warm_frac=args.ppl_warm_frac,
+        mask=mask,
     )
     if args.ppl_weight > 0 and args.ppl_warm_frac > 0:
         hold = max(1, round(args.steps * args.ppl_warm_frac))

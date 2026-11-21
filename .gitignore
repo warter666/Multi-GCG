@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 .venv*/
 out/
+.cache/
 .rederive/
 notes/
 .DS_Store

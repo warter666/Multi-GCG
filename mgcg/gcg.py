@@ -43,6 +43,9 @@ class GCGConfig:
     # that starts in the language manifold can move from there, while one that starts as noise
     # gets worse every step.
     ppl_warm_frac: float = 0.0
+    # Bool mask [V] over the vocabulary: True where that id may be used. None = unrestricted.
+    # This is how the search is confined to a carrier, e.g. the zero-width characters.
+    mask: object | None = None
 
 
 def ppl_weight_at(step: int, cfg: GCGConfig) -> float:
@@ -134,13 +137,22 @@ def batch_objective(
     return out
 
 
-def init_adv(tok, length: int, device, seed: int = 0) -> torch.Tensor:
+def init_adv(tok, length: int, device, seed: int = 0, allowed=None) -> torch.Tensor:
     """Random initialization for the adv. For reproducibility across runs, warm-start
-    from a previous run's adv_ids instead."""
+    from a previous run's adv_ids instead.
+
+    `allowed` restricts the pool, e.g. to ids that render as zero-width characters.
+    """
     import random
 
     rng = random.Random(seed)
-    ids = [rng.randrange(0, tok.vocab_size) for _ in range(length)]
+    if allowed is None:
+        ids = [rng.randrange(0, tok.vocab_size) for _ in range(length)]
+    else:
+        pool = list(allowed)
+        if not pool:
+            raise ValueError("allowed pool is empty")
+        ids = [pool[rng.randrange(0, len(pool))] for _ in range(length)]
     return torch.tensor(ids, device=device, dtype=torch.long)
 
 
@@ -181,7 +193,17 @@ def run_gcg(
 
     for step in range(1, cfg.steps + 1):
         step_cfg = replace(cfg, ppl_weight=ppl_weight_at(step, cfg))
+        if cfg.mask is not None:
+            # Only ids inside the carrier can be proposed. Everything else is excluded, not
+            # penalised: a soft penalty would still let an unusable id win late in the run.
+            # The tokenizer's vocab size and the model's padded output size differ, so pad.
+            m = cfg.mask
+            if m.numel() < grad.size(-1):
+                m = torch.nn.functional.pad(m, (0, grad.size(-1) - m.numel()))
+            grad = grad.masked_fill(~m.unsqueeze(0), float("-inf"))
         K = min(cfg.top_k, grad.size(-1))
+        if cfg.mask is not None:
+            K = min(K, max(1, int(cfg.mask.sum())))
         topk = (-grad).topk(K, dim=-1).indices                       # [L, K]
 
         pos = torch.randint(0, L, (cfg.batch,), device=device)
