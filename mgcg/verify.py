@@ -170,6 +170,31 @@ def l3_predicate(fam, target_call: dict) -> tuple[bool, str]:
     return False, f"{fam.expect_predicate} not hit (got {names})"
 
 
+def l3_on_trace(trace: dict, expect_predicate: str) -> tuple[bool, str]:
+    """Apply the checker to a trace the harness actually recorded.
+
+    This is the honest path: the trace comes from execution, not from `synth_trace`. Keep
+    both entry points so offline checks and real runs can be compared on the same predicate.
+    """
+    try:
+        import sys
+
+        from .model import sdk_path
+
+        root = sdk_path()
+        if root and root not in sys.path:
+            sys.path.insert(0, root)
+        from aicomp_sdk.core.predicates import eval_predicates
+    except Exception as e:  # noqa: BLE001
+        return False, f"SKIP: predicate checker not found ({e.__class__.__name__})"
+
+    hits = eval_predicates(trace)
+    names = [h["predicate"] for h in hits]
+    if expect_predicate in names:
+        return True, f"hit {names}"
+    return False, f"{expect_predicate} not hit (got {names})"
+
+
 def _target_for_l3(
     text: str, expect: dict, runtime_arg: str | None, fill: str | None, structural: bool = False
 ) -> dict:

@@ -43,5 +43,34 @@ Purpose: mechanism validation on local fakes. **Not** a tool for attacking real 
 - Python 3.11+, full type annotations, `from __future__ import annotations`.
 - Comments explain **why**; identifiers say **what**.
 - Do not add dependencies beyond transformers (accelerate is only for `device_map`).
-- Memory-related constants belong in the CLI, not hardcoded in modules.
-- `torch` is imported inside functions so that judgement logic can be tested without a GPU.
+- Memory-related constants belong in the CLI, not hardcoded in modules.- `torch` is imported inside functions so that judgement logic can be tested without a GPU.
+
+## The local agent harness (`mgcg/harness/`)
+
+The harness exists so an attack is measured by what the agent actually does, not by a trace
+we assembled ourselves. Rules:
+
+- **Execution and judgement are separate.** `harness/loop.py` runs the loop and records
+  events; it never decides whether an attack succeeded. Predicates are applied to the
+  recorded trace afterwards (`verify.l3_on_trace`).
+- **Never hand-build the trace.** `verify.synth_trace` is a shortcut for offline checks
+  only. Any number reported as a result must come from a harness run.
+- **Always run the control.** Treatment = poisoned document, control = clean document, same
+  task, same seed. If the control already produces the target call, the "result" is the
+  model's prior, not the adv. A treatment-only success is not a result.
+- **Tools are local fakes.** In-memory files and mailbox, `http.post` recorded and never
+  sent, `shell.run` recorded and never executed. No network, no real mailbox, no subprocess.
+- **Only the intended page is poisoned.** `Env.poison_pages` decides which `web.open`
+  targets return the payload; every other page is inert, so a control cannot leak it.
+- **Deterministic.** Same messages + same seed -> same trace. No wall-clock, no randomness
+  outside the seeded RNG.
+- **Every step is accounted for.** A parse failure is an event with `ok: false`, not a
+  silently skipped step. At most one retry, and the retry is counted. An unknown tool is
+  recorded as `ok: false` with an error, never dropped.
+- **The step budget is a parameter, not a vibe.** Stop at `--max-steps`; exhausting it is a
+  measured outcome (`budget_exhausted`), not an exception.
+- **One trace per episode**, one JSON object per event, frozen field set in
+  `harness/trace.py`: `name, args, ok, output, side_effect, scope, source, error`.
+  `source` is set by whichever tool produced the content (`web` / `email` / `file`), never
+  by the attacker.  
+- ONE FILE CAN ONLY WRITTEN DOWN BY ONE CODER AT THE SAME TIME, WHILE A REVIEWER MUST CHECK IT AFTER THE CODER FINISHED. HERE THE CODER AND THE REVIEWER ARE BOTH SUBAGENTS.
