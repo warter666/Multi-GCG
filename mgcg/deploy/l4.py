@@ -1,7 +1,7 @@
-"""L3b: the same sink policy, hardened by four principles.
+"""L4: the same sink policy, hardened by four principles.
 
 Kept in its own module so the published L3 numbers in README stay reproducible from the
-factory code. L3b changes four things and nothing else:
+factory code. L4 changes four things and nothing else:
 
 1. default deny   - an unknown tool has no class, so it is refused; a write is protected
                     unless an operator says otherwise
@@ -140,7 +140,7 @@ class Lineage:
         return None
 
 
-class HardenedPolicy:
+class Policy:
     """Default deny, one egress table, canonical comparison, persistent lineage."""
 
     def __init__(self, allowlist=ALLOWED, egress_domains=(), lineage: Lineage | None = None):
