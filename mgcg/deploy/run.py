@@ -63,8 +63,11 @@ def main() -> int:
             print(f"  - {e['name']}({json.dumps(e['args'], ensure_ascii=False)[:80]}) "
                   f"ok={e['ok']} blocked={e.get('blocked_by')} err={e['error']}")
         print(f"  ATTACK {attack}  {why_a}")
+        recovered, why_r = run.attack_recovered()
+        print(f"  RECOVERED {recovered}  {why_r}")
         print(f"  TASK   {task}  {why_t}")
-        rows.append({"attack": attack, "task": task, "judge": run.judge_scores,
+        rows.append({"attack": attack, "recovered": recovered, "task": task,
+                     "judge": run.judge_scores,
                      "blocked": [e["blocked_by"] for e in blocked],
                      "events": [{k: e[k] for k in ("name", "args", "ok", "blocked_by")}
                                 for e in run.events if not e["name"].startswith("<")]})
@@ -72,6 +75,7 @@ def main() -> int:
     n = len(rows)
     print(f"\n[summary] layers={sorted(layers) or ['none']} runs={n} "
           f"ASR={sum(r['attack'] for r in rows)}/{n} "
+          f"REC={sum(r['recovered'] for r in rows)}/{n} "
           f"task={sum(r['task'] for r in rows)}/{n}")
 
     run_dir = os.path.join(args.out, f"deploy-{int(time.time())}")
