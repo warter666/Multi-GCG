@@ -13,8 +13,17 @@ This repository answers one question.
 > An attacker puts text into a document that the assistant must read. How much damage does each
 > guard layer stop?
 
-The repository does not reproduce a competition score. A competition score is not verifiable
-here. The repository uses a deployment-shaped scene instead.
+The work is inspired by the Kaggle competition "AI Agent Security: Multi-Step Tool Attacks"
+(https://www.kaggle.com/competitions/ai-agent-security-multi-step-tool-attacks) and by the
+Hybrid GCG search of its first-place solution
+(https://github.com/xz259/Kaggle-AI-Agent-Security-1st-Place-Solution). Two ideas carry over:
+the gradient only proposes, and the deployed artefact decides; a candidate is accepted only
+after the real target re-scores it. Here the guard reads the decoded string, so the search
+accepts on the decoded string.
+
+The repository does not reproduce a competition score. That score depends on the organiser's
+weighting and on a synthetic threat model, and it is not verifiable here. The repository uses a
+deployment-shaped scene instead. The competition-era search is kept in `legacy/`.
 
 ## 2. The scene
 
