@@ -20,12 +20,12 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from mgcg import skeleton  # noqa: E402
-from mgcg.families import FAMILIES, build_layout  # noqa: E402
-from mgcg.harness import filters  # noqa: E402
-from mgcg.layout import adv_nll_from_logits, loss_from_logits, margin_from_logits  # noqa: E402
+from legacy import skeleton  # noqa: E402
+from legacy.families import FAMILIES, build_layout  # noqa: E402
+from legacy.harness import filters  # noqa: E402
+from legacy.layout import adv_nll_from_logits, loss_from_logits, margin_from_logits  # noqa: E402
 from mgcg.model import load_model  # noqa: E402
 
 

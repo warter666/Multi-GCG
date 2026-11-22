@@ -11,19 +11,22 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from dataclasses import replace
 
 import torch
 
-from mgcg.families import FAMILIES, SECRET, build_layout
-from mgcg.gate import gate
-from mgcg.gcg import GCGConfig, init_adv, objective_from, run_gcg
-from mgcg.harness import filters
-from mgcg import invisible
-from mgcg.layout import adv_nll_from_logits, loss_from_logits, margin_from_logits
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from legacy.families import FAMILIES, SECRET, build_layout
+from legacy.gate import gate
+from legacy.gcg import GCGConfig, init_adv, objective_from, run_gcg
+from legacy.harness import filters
+from legacy import invisible
+from legacy.layout import adv_nll_from_logits, loss_from_logits, margin_from_logits
 from mgcg.model import load_model
-from mgcg.verify import failure_kind, verify
+from legacy.verify import failure_kind, verify
 
 
 def generate(tok, model, ids, max_new_tokens: int) -> str:

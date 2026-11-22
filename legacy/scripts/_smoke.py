@@ -13,7 +13,7 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, ROOT)
 
 
@@ -29,8 +29,8 @@ def _load_checker():
     return eval_predicates
 
 
-from mgcg.families import FAMILIES, RUNTIME, SECRET, _filled, render_target  # noqa: E402
-from mgcg.verify import (  # noqa: E402
+from legacy.families import FAMILIES, RUNTIME, SECRET, _filled, render_target  # noqa: E402
+from legacy.verify import (  # noqa: E402
     _balanced_json,
     failure_kind,
     l1_tool_name,
@@ -93,7 +93,7 @@ def _layout_check() -> int:
     """
     import numpy as np
 
-    from mgcg.layout import Layout, Span
+    from legacy.layout import Layout, Span
 
     class Arr:
         """Wrap a numpy array with the numel() interface Layout expects."""

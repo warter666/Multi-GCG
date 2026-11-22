@@ -12,7 +12,7 @@ Purpose: mechanism validation on local fakes. **Not** a tool for attacking real 
 
 ## Method discipline (do not bypass to "make it run")
 
-- The three gates in `mgcg/gate.py` **must not be commented out** to get a run going:
+- The three gates in `legacy/gate.py` **must not be commented out** to get a run going:
   unchanged length, token-exact prefix, self-consistent target string. If a gate fails,
   fix `build_layout`; do not route around the check.
 - Speedups are never evidence. Caches, approximations and sampling only shortlist candidates.
@@ -50,7 +50,7 @@ Purpose: mechanism validation on local fakes. **Not** a tool for attacking real 
 
 ## Before touching anything
 
-1. Run `python run.py --family deputy --model Qwen/Qwen2.5-0.5B-Instruct --dry-run`.
+1. Run `python legacy/run.py --family deputy --model Qwen/Qwen2.5-0.5B-Instruct --dry-run`.
    It is the cheapest way to notice that the layout or the loss is wrong.
 2. After editing `families.py`, run `--dry-run` for all four families.
 3. L3 depends on an external predicate checker (`AICOMP_SDK_ROOT`). Changes that touch
@@ -63,7 +63,7 @@ Purpose: mechanism validation on local fakes. **Not** a tool for attacking real 
 - Do not add dependencies beyond transformers (accelerate is only for `device_map`).
 - Memory-related constants belong in the CLI, not hardcoded in modules.- `torch` is imported inside functions so that judgement logic can be tested without a GPU.
 
-## The local agent harness (`mgcg/harness/`)
+## The old agent harness (`legacy/harness/`)
 
 The harness exists so an attack is measured by what the agent actually does, not by a trace
 we assembled ourselves. Rules:

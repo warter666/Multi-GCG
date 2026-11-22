@@ -14,7 +14,7 @@ from typing import Any
 
 import torch
 
-from ..harness.loop import _generate, _step, parse_calls
+from ..runtime import step as step_turn
 from .guards import Judge, SinkPolicy, normalize_addr, provenance
 from .world import (ALLOWED, ATTACKER, EMAILS, FILES, ISSUE_WORDS, SECRET, SECRET_PATH,
                     SYSTEM, TASK, manifest)
@@ -179,7 +179,7 @@ def run_episode(tok, model, payload: str, layers: set[str], max_steps: int = 4,
 
     for step in range(1, max_steps + 1):
         run.turns = step
-        text, calls, ctx = _step(tok, model, ctx, max_new_tokens, device)
+        text, calls, ctx = step_turn(tok, model, ctx, max_new_tokens, device)
         run.add(name="<assistant>", args={"text": text[:400]}, ok=True, output="",
                 error=None, source="file", blocked_by=None, side_effect="READ")
         if not calls:

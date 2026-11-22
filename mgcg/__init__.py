@@ -1,18 +1,14 @@
-"""Multi-GCG: multi-family, multi-objective GCG for targeted tool-call attacks on
-tool-using agents.
+"""A deployment-shaped testbed for an assistant's input and output guards.
 
 Modules:
-    layout    sequence layout (optimizable span + pinned context + target spans),
-              NLL and margin objectives
-    gcg       gradient-guided search (radius-1 coordinate search + power-law rank sampling)
-    families  the four attack families and their pinned hops
-    gate      hard checks performed before any edit is accepted
-    verify    three-level verification
-    model     target model loading
+    model     target model loading, shared by the testbed and the attack surface
+    runtime   one assistant turn: generate, parse a tool call, retry once
+    deploy    the mailbox world, the three guards, the episode, the two axes, the CLI
+    attacks   white-box attacks on the judge, on one shared scoring surface
 
-The gradient only *proposes*. Whether a proposal is really better is decided by a
-separate full-context forward pass plus an external predicate checker — the same
-separation of concerns the public Hybrid GCG implementation uses.
+The competition-era search that gave this project its name lives in `legacy/`, outside this
+package. Nothing here imports it: the split exists so the testbed cannot accidentally inherit
+four attack families and a predicated verifier it does not use.
 """
 
-__all__ = ["layout", "gcg", "families", "gate", "verify", "model"]
+__all__ = ["model", "runtime", "deploy", "attacks"]

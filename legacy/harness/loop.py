@@ -20,7 +20,7 @@ import torch
 
 from ..families import FAMILIES, SYSTEM
 from .. import carriers
-from ..model import load_model
+from mgcg.model import load_model
 from ..verify import _balanced_json, l3_on_trace, l_target
 from . import filters
 from .env import Env
