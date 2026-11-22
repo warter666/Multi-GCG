@@ -5,10 +5,6 @@ Repository: `agent-guard-testbed`. The project was called Multi-GCG until the se
 
 A testbed for the guards around a tool-using assistant.
 
-This file obeys the ASD-STE100 rules for structure and vocabulary: short sentences, active
-voice, simple present tense, one instruction per sentence, one term for one concept. It is not
-a certified dictionary check.
-
 ## 1. Purpose
 
 This repository answers one question.
@@ -428,6 +424,7 @@ scripts/l3.sh           Payloads for the sink, with and without a guard
 scripts/l3probe.sh      Does the agent open a named path
 scripts/matrix.sh       Five guard stacks against four payloads
 legacy/                 The competition-era search, kept for one negative result
+docs/findings.md        The full record: traces, caveats, and every table as measured
 ```
 
 `legacy/` holds the competition-era search. It no longer names the project. It still matters
@@ -437,6 +434,5 @@ for two reasons: its negative result is cited in section 7, and its proposal ste
 ## 10. Full record
 
 `docs/findings.md` holds the full record: the reasoning, the tables as they were measured, the
-caveats, and the measurement bug that was found and fixed.
-
-Read that file before you quote a number from this file.
+caveats, and the measurement bug that was found and fixed. Its numbers are the authoritative
+ones; this file keeps only what a reader needs before running a command.

@@ -1,8 +1,7 @@
 # Findings
 
-The full record for the testbed in `README.md`. Measurements, reasoning and caveats, in the order they were established.
-
-The numbers here are the authoritative ones. The README is a procedure document and repeats only what a reader needs before running a command.
+Measurement, reasoning and caveats, in the order they were established. The numbers here are
+the authoritative ones.
 
 ## The project in one paragraph
 
@@ -16,10 +15,11 @@ Two numbers, always together: whether the attack landed, and whether the user's 
 done. A guard that buys the first by losing the second is an outage, and a testbed that counts
 only attacks cannot tell the difference.
 
-The name is historical. GCG is one of the attackers here rather than the method: its proposal
-step is what `mgcg/attacks/cw.py` reuses, and the competition-era search that gave the project
-its name now lives in `legacy/`, because its negative result is still cited. The live stack is
-`mgcg/deploy`, `mgcg/attacks` and `mgcg/runtime`; nothing there imports `legacy/`.
+The name changed. Until the search moved to `legacy/` the repository was called Multi-GCG; it is
+now `agent-guard-testbed`. GCG is one of the attackers here rather than the method: its proposal
+step is what `mgcg/attacks/cw.py` reuses, and the competition-era search itself now lives in
+`legacy/`, because its negative result is still cited. The live stack is `mgcg/deploy`,
+`mgcg/attacks` and `mgcg/runtime`; nothing there imports `legacy/`.
 
 The sections from Terms down to Pinning both hops document the legacy flow and its numbers.
 Start at "A deployment-shaped scenario" for what the project is now.
