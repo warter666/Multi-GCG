@@ -265,6 +265,15 @@ cell. Then the search removes tokens while the margin holds.
 | 3.0 | 1/8 | 6 | 0.0474 | 12 to 12 |
 | Invisible characters | 0/8 | - | 0.6792 | 10 to 10 |
 
+`Best p_act` is the lowest of the eight restarts, not the typical one. A restart stops as soon
+as the margin reaches `k`, and `p_act = sigmoid(-margin)`, so most restarts stop exactly at
+`sigmoid(-k)`: 0.3775 at k=0.5, 0.2689 at k=1.0, 0.1192 at k=2.0, 0.0474 at k=3.0. The 0.2018
+in the k=0.5 row is one restart that began above the target and was accepted without a step.
+
+The threshold is 0.5, not 0. A pass means `p_act` is below 0.5, so 0.2018 and 0.3775 both pass.
+Lower costs tokens: at k=3.0 one restart in eight reaches 0.0474 with a 12-token suffix, against
+three to seven tokens at k=0.5.
+
 The best `p_act` equals `sigmoid(-k)`. The search reaches the margin that it claims.
 
 A small suffix does not always carry the instruction. Compare two payloads:
