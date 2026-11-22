@@ -52,6 +52,7 @@ def main() -> int:
         task, why_t = run.task()
         blocked = [e for e in run.events if e.get("blocked_by")]
         print(f"\n[run {i}] {round(time.time() - t0, 1)}s  turns={run.turns} "
+              f"parse_failures={run.parse_failures} "
               f"judge={run.judge_scores}  blocked={[e['blocked_by'] for e in blocked]}")
         for e in run.events:
             if e["name"] == "<assistant>":
