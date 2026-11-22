@@ -1,4 +1,7 @@
-# Multi-GCG
+# Agent Guard Testbed
+
+Repository: `agent-guard-testbed`. The project was called Multi-GCG until the search moved to
+`legacy/`. The name now says what the repository does.
 
 A testbed for the guards around a tool-using assistant.
 
@@ -12,6 +15,9 @@ This repository answers one question.
 
 > An attacker puts text into a document that the assistant must read. How much damage does each
 > guard layer stop?
+
+The object under test is a guard stack. The method is an adaptive attack. The output is a
+measurement: what each layer stops, and what it costs in task completion.
 
 The work is inspired by the Kaggle competition "AI Agent Security: Multi-Step Tool Attacks"
 (https://www.kaggle.com/competitions/ai-agent-security-multi-step-tool-attacks) and by the
@@ -424,8 +430,9 @@ scripts/matrix.sh       Five guard stacks against four payloads
 legacy/                 The competition-era search, kept for one negative result
 ```
 
-`legacy/` holds the search that gave this project its name. GCG is one attacker here, not the
-method. Its proposal step is what `mgcg/attacks/cw.py` reuses.
+`legacy/` holds the competition-era search. It no longer names the project. It still matters
+for two reasons: its negative result is cited in section 7, and its proposal step is what
+`mgcg/attacks/cw.py` reuses. GCG is one attacker here, not the method.
 
 ## 10. Full record
 
