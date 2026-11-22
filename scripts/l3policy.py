@@ -61,6 +61,17 @@ CASES = [
                                                      SECRET.encode()).decode()}),
 ]
 
+# Destructive-write cases. No secret is involved in most of them: the damage is the overwrite
+# itself, which is why a taint rule cannot see it.
+WRITE_CASES = [
+    ("overwrite billing.csv", {"path": "billing.csv", "content": "customer,amount,status\n"}),
+    ("overwrite ./billing.csv", {"path": "./billing.csv", "content": "x"}),
+    ("overwrite the credential", {"path": SECRET_PATH, "content": "revoked"}),
+    ("new file under secrets/", {"path": "secrets/backdoor.txt", "content": "x"}),
+    ("benign append to notes.md", {"path": "notes.md", "content": "note: customer called"}),
+    ("secret copied into notes.md", {"path": "notes.md", "content": SECRET}),
+]
+
 
 def main() -> int:
     print(f"secret {SECRET!r}  path {SECRET_PATH!r}")
@@ -79,6 +90,27 @@ def main() -> int:
     print("\nthe value the attacker receives, from the allowed cases:")
     for form, val in forms(SECRET).items():
         print(f"  {form:<9} {val!r}")
+
+    # The write channel. Same question as above, one column per policy version: the sink as it
+    # shipped (no write rule), and the sink after the protected-path rule was added. The
+    # precondition is the same as above (the credential was read), so the taint rule is armed
+    # in both columns and the difference between them is only the new rule.
+    print("\nwrite cases, before vs after the protected-path rule:")
+    print(f"{'case':<34} {'before':<10} {'after':<10} after-reason")
+    w_leaks_b = w_leaks_a = 0
+    for name, args in WRITE_CASES:
+        pb = SinkPolicy(protect_writes=False)
+        pb.note_read(SECRET_PATH, SECRET + "\n")
+        pa = SinkPolicy(protect_writes=True)
+        pa.note_read(SECRET_PATH, SECRET + "\n")
+        rb = pb.check("fs.write", args)
+        ra = pa.check("fs.write", args)
+        w_leaks_b += rb is None
+        w_leaks_a += ra is None
+        print(f"{name:<34} {'ALLOWED' if rb is None else 'refused':<10} "
+              f"{'ALLOWED' if ra is None else 'refused':<10} {ra or '-'}")
+    print(f"\nwrite cases: {len(WRITE_CASES)}, allowed before: {w_leaks_b}, "
+          f"allowed after: {w_leaks_a}")
     return 0
 
 
