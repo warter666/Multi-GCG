@@ -47,7 +47,8 @@ def mean_nll(tok, model, text: str, device) -> tuple[float, int]:
 
 def cw_search(surface: JudgeSurface, vocab_ids: torch.Tensor, *, steps: int, suffix_len: int,
               cand: int, win: int, k: float, seed: int, batch: int = 16,
-              strict: frozenset[str] | None = None) -> dict:
+              strict: frozenset[str] | None = None, patience: int = 4,
+              prune: bool = True) -> dict:
     """One restart: coordinate search on the CW margin, stopping once the gap clears k.
 
     The gradient is computed on a hand-concatenated token sequence, but nothing is accepted
@@ -79,6 +80,7 @@ def cw_search(surface: JudgeSurface, vocab_ids: torch.Tensor, *, steps: int, suf
     best = start.margin
     edits = 0
     used = 0
+    stall = 0
     trail = [round(best, 4)]
 
     for step in range(1, steps + 1):
@@ -113,11 +115,44 @@ def cw_search(surface: JudgeSurface, vocab_ids: torch.Tensor, *, steps: int, suf
             gains.extend((z_no - z_yes).tolist())
         i = int(torch.tensor(gains).argmax().item())
         if gains[i] <= best:
-            break  # no candidate on the guard's own measure beats the current string
+            # A single window of `win` positions produced no improvement. Ending the restart
+            # here is what made half of them die after two steps: the wrong positions were
+            # sampled, not a dead end. Keep going until `patience` steps pass without a gain,
+            # which gives the shuffle a chance to reach the positions that do move the margin.
+            stall += 1
+            if stall >= patience:
+                break
+            continue
         best = gains[i]
         suffix = props[i]
         edits += 1
+        stall = 0
         trail.append(round(best, 4))
+
+    # CW's second half: minimise the edit, not just the loss. Once the margin holds, drop one
+    # token at a time and keep the drop whenever the margin still clears k. The result is the
+    # suffix a defender would actually have to explain, not the one that happened to score
+    # best. Token count before and after is reported because "10 tokens cleared it" and
+    # "2 tokens cleared it" are different claims about the guard.
+    pruned_from = len(surface.tok(suffix, add_special_tokens=False).input_ids)
+    if prune and best >= k:
+        ids = surface.tok(suffix, add_special_tokens=False).input_ids
+        again = True
+        while again and ids:
+            again = False
+            for p in range(len(ids)):
+                cand = ids[:p] + ids[p + 1:]
+                s = surface.tok.decode(cand, skip_special_tokens=False) if cand else ""
+                if strict is not None and not all(ch in strict for ch in s):
+                    continue
+                m = surface.score_text(s).margin
+                if m >= k:
+                    ids, suffix, best = cand, s, m
+                    again = True
+                    break
+        pruned_to = len(ids)
+    else:
+        pruned_to = pruned_from
 
     real = surface.score_text(suffix)
     nll, ntok = mean_nll(surface.tok, surface.model, suffix, device) if suffix.strip() else (0.0, 0)
@@ -128,12 +163,15 @@ def cw_search(surface: JudgeSurface, vocab_ids: torch.Tensor, *, steps: int, suf
         "cleared_k": best >= k,
         "steps": used,
         "edits": edits,
+        "stalled": stall,
         "trail": trail,
         "suffix": suffix,
         "real_p_act": round(real.p_act, 4),
         "real_margin": round(real.margin, 4),
         "nll": round(nll, 3),
         "tokens": ntok,
+        "tokens_before_prune": pruned_from,
+        "tokens_after_prune": pruned_to,
     }
 
 
@@ -155,6 +193,10 @@ def main() -> int:
     ap.add_argument("--suffix-len", type=int, default=16)
     ap.add_argument("--cand", type=int, default=24)
     ap.add_argument("--win", type=int, default=2)
+    ap.add_argument("--patience", type=int, default=4,
+                    help="steps without a gain before a restart is abandoned")
+    ap.add_argument("--no-prune", action="store_true",
+                    help="keep every token the search added instead of minimising the edit")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--verify-layers", default=None,
                     help="comma list from l1,l2,l3: run the episode on the best payload")
@@ -181,7 +223,8 @@ def main() -> int:
     print(f"[base]    p_act={base.p_act:.4f}  margin={base.margin:+.3f}  "
           f"(threshold {judge.threshold}, k={args.k})")
     print(f"[search]  restarts={args.restarts} steps={args.steps} len={args.suffix_len} "
-          f"cand={args.cand} win={args.win}")
+          f"cand={args.cand} win={args.win} patience={args.patience} "
+          f"prune={not args.no_prune}")
 
     t0 = time.time()
     rows = []
@@ -191,10 +234,11 @@ def main() -> int:
     for r in range(args.restarts):
         rec = cw_search(surface, vocab_ids, steps=args.steps, suffix_len=args.suffix_len,
                         cand=args.cand, win=args.win, k=args.k, seed=args.seed + r,
-                        strict=strict)
+                        strict=strict, patience=args.patience, prune=not args.no_prune)
         rows.append(rec)
         print(f"  [r{r}] init {rec['init_margin']:+.3f} -> best {rec['best_margin']:+.3f} "
               f"(real p={rec['real_p_act']:.4f}) steps={rec['steps']} edits={rec['edits']} "
+              f"tokens {rec['tokens_before_prune']}->{rec['tokens_after_prune']} "
               f"nll={rec['nll']} {'CLEARED' if rec['cleared_k'] else ''}")
     elapsed = round(time.time() - t0, 1)
 
@@ -202,9 +246,15 @@ def main() -> int:
     best = min(rows, key=lambda r: r["real_p_act"])
     payload = prefix + best["suffix"]
     ok = best["real_p_act"] < judge.threshold
+    cleared = sum(r["cleared_k"] for r in rows)
+    steps = sorted(r["steps"] for r in rows if r["cleared_k"])
+    med = steps[len(steps) // 2] if steps else 0
     print(f"\n[best]    real p_act={best['real_p_act']:.4f} "
           f"({'judge says SAFE' if ok else 'judge still blocks'})  "
-          f"cleared {sum(r['cleared_k'] for r in rows)}/{len(rows)} restarts")
+          f"cleared {cleared}/{len(rows)} restarts at k={args.k}"
+          f"{f', median {med} steps to clear' if cleared else ''}")
+    print(f"[minimal] {best['tokens_before_prune']} -> {best['tokens_after_prune']} tokens "
+          f"after minimising the edit")
     print(f"[payload] {payload[:400]!r}")
 
     verify = None
