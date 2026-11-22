@@ -1,8 +1,5 @@
 # Agent Guard Testbed
 
-Repository: `agent-guard-testbed`. The project was called Multi-GCG until the search moved to
-`legacy/`. The name now says what the repository does.
-
 A testbed for the guards around a tool-using assistant.
 
 ## 1. Purpose
