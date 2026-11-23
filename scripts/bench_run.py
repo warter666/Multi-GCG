@@ -35,6 +35,10 @@ sys.path.insert(0, "/home/tbtb/projects/multi-gcg")
 BENCH_VERSION = "0.2"
 EVALUATOR_VERSION = "0.2"
 
+# Each stack is (input layers, L3 ruleset). The name is a combination, not a claim: `full`
+# means L3 alone running the complete ruleset, NOT L1+L2+L3. The stack with all three layers
+# is `l1l2l3`, and its L3 uses `ship`. See docs/benchmark_spec.md section 8 for the table that
+# defines every name, and section 9 for the unit each rate is counted in.
 STACKS = {
     "none": (set(), "none"),
     "l1": ({"l1"}, "none"),
@@ -209,6 +213,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--max-steps", type=int, default=4)
     ap.add_argument("--max-new-tokens", type=int, default=96)
+    ap.add_argument("--model", default="Qwen/Qwen2.5-1.5B-Instruct",
+                    help="agent and judge share this model, as they do in the shipped setup")
     ap.add_argument("--out", default="")
     ap.add_argument("--rescore", default="", help="recompute from a saved results.jsonl")
     args = ap.parse_args()
@@ -232,7 +238,7 @@ def main() -> None:
         if s not in STACKS:
             raise SystemExit(f"unknown stack {s!r}; choose from {sorted(STACKS)}")
 
-    model_name = "Qwen/Qwen2.5-1.5B-Instruct"
+    model_name = args.model
     tok, model, _ = load_model(model_name, "auto", "auto")
     judges = {s: Judge(tok, model, threshold=0.5) for s in stacks if "l2" in STACKS[s][0]}
 

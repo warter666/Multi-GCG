@@ -107,3 +107,7 @@ A stack is a pair: the input guards (`l1`, `l2`) and the L3 policy (`none`, `shi
 `scripts/bench_run.py` names them `none`, `l1`, `l2`, `l3` (the shipped rules), `full`, `l1full`,
 `l1l2` and `l1l2l3`. Two rows are comparable only when the pair is the same; the input guards
 do not change what the layer decides, and the layer does not change what the judge scores.
+
+`full` is not "everything": it is L3 alone running the complete ruleset, and the stack that
+actually holds all three layers is `l1l2l3`, whose L3 uses `ship`. `docs/benchmark_spec.md`
+section 8 is the table that defines each name; section 9 says what each rate is counted in.

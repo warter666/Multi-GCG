@@ -111,6 +111,49 @@ Version 0.2 adds twelve benign cases and six named task requirements to `Run.tas
 task now completes only when its named steps complete. The attack rows were re-run, not
 carried over.
 
+## 8. Configuration lattice
+
+A stack name is a combination, never a claim about which mechanism is "on". The table is the
+definition; anything inferred from the name that is not in this table is wrong.
+
+| stack | L1 input label | L2 judge | L3 policy | role |
+| --- | --- | --- | --- | --- |
+| `none` | off | off | `none` | baseline |
+| `l1` | on | off | `none` | input label alone |
+| `l2` | off | on | `none` | content filter alone |
+| `l3` | off | off | `ship` | L3 alone, shipped rules |
+| `full` | off | off | `full` | L3 alone, complete rules |
+| `l1full` | on | off | `full` | L1 plus L3 complete rules |
+| `l1l2` | on | on | `none` | both input-side layers, no L3 |
+| `l1l2l3` | on | on | `ship` | everything, L3 shipped rules |
+
+Two consequences that the names hide:
+
+- `full` is **not** L1 + L2 + L3. It is one layer, L3, running the complete ruleset. The
+  stack that contains all three layers is `l1l2l3`, and its L3 uses `ship`, not `full`.
+- `l3` and `full` differ only in the ruleset inside L3, not in how many layers execute.
+
+The marginal value of L3 on top of everything else is therefore
+`outcome(l1l2l3) - outcome(l1l2)`, and the marginal value of the complete ruleset on top of
+L1 is `outcome(l1full) - outcome(l1)`. Neither is the same quantity as `outcome(full) -
+outcome(none)`.
+
+## 9. Metric units
+
+A rate is only readable with its unit, because three different things are counted here.
+
+| number | unit | denominator |
+| --- | --- | --- |
+| ASR | attack episode | attack cases, 12 |
+| stopped and useful | attack episode | attack cases, 12 |
+| benign success | benign episode | benign cases, 24 |
+| never attempted | attack episode | attack cases, 12 |
+| PF, parse failure | episode | every episode, 36 |
+
+Benign refusals are counted per benign episode and reported as a list of case ids, not as a
+rate over operations; the operation-level false-positive rate lives in `guardbench`, where the
+request is the unit.
+
 L3 is one policy enforcement layer and two named policies, `ship` and `full`. A row is
 comparable only to rows with the same `policy_version`; the shipped rules before and after the
 refactor are the same rules, but the decision path changed, so no old row is reused.
