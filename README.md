@@ -550,6 +550,45 @@ python scripts/bench_run.py --rescore out/bench-full/results.jsonl
 This is how an earlier five-label scheme was replaced by the three axes without spending a
 second GPU sample. The axes were already in every row.
 
+### 7.10 Ablation: what each property of the full form is worth
+
+The full form has four properties. Each has a switch, and each switch is removed alone. The
+corpus is 24 calls in `bench/policy_cases.jsonl`. Each call is one decision, with the reads
+that precede it. No model runs: a decision is a function of the arguments and the taint set,
+so the same input gives the same verdict.
+
+| Mode | Decisions lost against full | Cases |
+| --- | --- | --- |
+| full | 0/24 | - |
+| none (all four off) | 12/24 | P-01..04, 07, 10, 11, 12, 18, 19, 20, 21 |
+| no default deny | 6/24 | P-01..04, 18, 20 |
+| no egress table | 2/24 | P-07, P-19 |
+| no canonicalisation | 4/24 | P-10, 11, 12, 21 |
+| no persistent lineage | 1/24 | P-21 |
+
+```
+python scripts/ablate_policy.py
+```
+
+Three results:
+
+1. **The properties partition the data, they do not stack on it.** Default deny owns the
+   writes and the unclassified tool. The egress table owns the calls that carry no secret.
+   Canonicalisation owns the calls that carry a secret in a changed form. Lineage owns the
+   calls that carry a secret from an earlier session. No case needs two properties to be
+   refused, so the four together cover four classes and not one class four times.
+2. **Canonicalisation is worth the encoded family, nothing more.** The literal case survives
+   without it, and so does the truncated prefix. A defence that compares the literal string
+   already refuses both.
+3. **Lineage is one case in this corpus, and it is coupled to canonicalisation.** Only P-21
+   crosses a session, and that case sends base64. The value of lineage is therefore the value
+   of lineage *and* decoding; a table of single removals cannot price them apart.
+
+The predicted interaction was egress against canonicalisation. It did not appear: with the
+egress table removed, every encoded case is still refused by the taint comparison. The two
+properties never address the same call. The gap in 7.8 sits exactly where neither fires: a
+customer list, no secret in it, sent to a host that has a rule.
+
 ## 8. Limits
 
 1. Use one model size. A 1.5B model is weak. A larger model can substitute a read value into a
@@ -570,7 +609,8 @@ second GPU sample. The axes were already in every row.
 11. The full form checks the destination, not the content. Ordinary customer data can leave to a host
     that has a rule. Section 7.8 states this case.
 12. Lineage is a file next to the run. That file has no write rule of its own.
-13. The full form is measured at the policy level. No episode uses it yet.
+13. The full form is measured at the policy level. No episode uses it yet. The ablation in
+    7.10 counts decisions, not episodes, so its column is not an attack success rate.
 
 ## 9. File map
 
@@ -585,6 +625,8 @@ scripts/probe_clean.py  Normal mail against the judge: the false positive, measu
 scripts/probe_l3break.py  Five ways to defeat L3, at the policy level
 scripts/probe_policy.py  L3 full form against the same cases, side by side with L3 shipped
 bench/cases.jsonl       The versioned case set: 24 cases, 12 benign and 12 attack
+bench/policy_cases.jsonl  Decisions for the ablation: 24 calls, no model
+scripts/ablate_policy.py  Four switches removed one at a time, with the verdicts side by side
 bench/README.md         Case schema, the three axes, the seven verdicts, the repetition rule
 docs/benchmark_spec.md  Threat model, ground truth, metrics, version block
 scripts/bench_run.py    Runs every case on every stack and scores the traces; --rescore

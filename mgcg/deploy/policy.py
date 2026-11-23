@@ -38,6 +38,9 @@ SINK_CLASS = {
 PROTECTED_FILES = tuple(p for p in PROTECTED if not p.endswith("/"))
 PROTECTED_DIRS = tuple(p for p in PROTECTED if p.endswith("/"))
 
+# The four properties, named so that one can be removed at a time.
+ABLATIONS = ("deny", "egress", "canonical", "lineage")
+
 EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+")
 FLAT = re.compile(r"[^a-z0-9]")
 B64_RUN = re.compile(r"[A-Za-z0-9+/=]{12,}")
@@ -106,12 +109,15 @@ class Lineage:
     def __init__(self, path: str | None = None):
         self.path = path
         self.values: set[str] = set()
+        self.raw: set[str] = set()
         if path and os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as fh:
-                    self.values = set(json.load(fh).get("values", []))
+                    data = json.load(fh)
+                self.values = set(data.get("values", []))
+                self.raw = set(data.get("raw", []))
             except Exception:
-                self.values = set()
+                self.values, self.raw = set(), set()
 
     def save(self) -> None:
         if not self.path:
@@ -119,18 +125,35 @@ class Lineage:
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
         tmp = self.path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump({"values": sorted(self.values)}, fh)
+            json.dump({"values": sorted(self.values), "raw": sorted(self.raw)}, fh)
         os.replace(tmp, self.path)
 
     def add(self, value: str) -> None:
         f = flat(value)
+        r = str(value).strip()
         if len(f) >= 3 and f not in self.values:
             self.values.add(f)
+            if r:
+                self.raw.add(r)
             self.save()
 
-    def hits(self, blob: str) -> str | None:
-        """The first tainted value recoverable from this blob, or None."""
-        flats = [flat(v) for v in views(str(blob))]
+    def hits(self, blob: str, expand: bool = True) -> str | None:
+        """The first tainted value recoverable from this blob, or None.
+
+        `expand=False` compares the literal string only: no decoding, no separator folding.
+        That is what an ablation of canonicalisation has to mean, or the ablation would still
+        lean on one of the mechanisms it claims to remove.
+        """
+        raw = str(blob)
+        if not expand:
+            # Literal comparison against the literal values: no decoding, no separator folding.
+            for taint in self.raw:
+                if taint and taint in raw:
+                    return taint
+                if len(raw) >= PARTIAL_MIN and raw in taint:
+                    return taint
+            return None
+        flats = [flat(v) for v in views(raw)]
         for taint in self.values:
             for f in flats:
                 if taint and taint in f:
@@ -141,12 +164,24 @@ class Lineage:
 
 
 class Policy:
-    """Default deny, one egress table, canonical comparison, persistent lineage."""
+    """Default deny, one egress table, canonical comparison, persistent lineage.
 
-    def __init__(self, allowlist=ALLOWED, egress_domains=(), lineage: Lineage | None = None):
+    `ablate` names a property to remove, for scripts/ablate_policy.py. The mail allowlist is
+    kept in every configuration: that rule is L3's base, not one of the four properties.
+    """
+
+    def __init__(self, allowlist=ALLOWED, egress_domains=(), lineage: Lineage | None = None,
+                 ablate=()):
+        self.ablate = set(ablate)
         self.allowlist = tuple(normalize_addr(a) for a in allowlist)
         self.egress_domains = tuple(d.lower() for d in egress_domains)
-        self.lineage = lineage if lineage is not None else Lineage()
+        if lineage is not None:
+            self.lineage = lineage
+        elif "lineage" in self.ablate:
+            # Memory only: the taint set is rebuilt on every process, as L3 shipped.
+            self.lineage = Lineage(None)
+        else:
+            self.lineage = Lineage()
         self.blocked: list[dict] = []
 
     def note_read(self, path: str, value: str) -> None:
@@ -156,6 +191,9 @@ class Policy:
                 if line.strip():
                     self.lineage.add(line.strip())
             return
+        if "lineage" in self.ablate:
+            # No propagation: a stored copy does not stay hot across sessions.
+            return
         # A file that merely stores the secret stays hot.
         hit = self.lineage.hits(value)
         if hit:
@@ -164,9 +202,11 @@ class Policy:
     def check(self, name: str, args: dict) -> str | None:
         cls = SINK_CLASS.get(name)
         if cls is None:
+            if "deny" in self.ablate:
+                return None
             return f"tool {name!r} has no class, so it is refused by default"
 
-        if cls == "write":
+        if cls == "write" and "deny" not in self.ablate:
             path = posixpath.normpath(str(args.get("path", "")).strip())
             if path in PROTECTED_FILES:
                 return f"write to protected path {path!r}"
@@ -185,7 +225,7 @@ class Policy:
             if normalize_addr(addrs[0]) not in self.allowlist:
                 return f"recipient {addrs[0]!r} is not on the allowlist"
 
-        if name == "http.post":
+        if name == "http.post" and "egress" not in self.ablate:
             host = (urlparse(str(args.get("url", "")).strip()).hostname or "").lower()
             if not host:
                 return "post with no host"
@@ -195,8 +235,9 @@ class Policy:
         if cls in ("write", "egress"):
             # Each argument is expanded on its own: joining them into one blob would hide a
             # partial value that sits inside one field.
+            expand = "canonical" not in self.ablate
             for value in args.values():
-                if self.lineage.hits(str(value)):
+                if self.lineage.hits(str(value), expand=expand):
                     return "argument carries a value derived from the secret path"
 
         return None

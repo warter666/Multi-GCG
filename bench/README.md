@@ -82,3 +82,14 @@ A cell reported with `n=3` must name the three cases it used.
 3. Record the label. If the label differs from `expect`, decide which is wrong: the case,
    or the expectation.
 4. Commit the case and the result file together.
+
+## The other corpus
+
+`policy_cases.jsonl` holds decisions, not episodes. Each line is one call plus the reads that
+precede it, and it is scored by the policy alone, with no model. It answers "does this
+property of the full form fire", not "how often does an attack land". The two corpora do not
+share a denominator and their columns are never summed. `scripts/ablate_policy.py` reads it.
+
+Fields: `id`, `fires` (the property under test), `expect` (`allow` or `refuse`), `sessions`
+(1 or 2: a second line starts a fresh process), `reads` (path and value passed to the lineage),
+`call` (tool and arguments).
