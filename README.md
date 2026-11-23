@@ -508,13 +508,22 @@ and the comparison are both local to one process.
 ### 7.9 The case set: utility and attack success on the same cases
 
 Twelve benign cases, twelve attacks, three stacks. Each cell is one episode, scored from the
-trace. `bench/README.md` defines the labels.
+trace. Counts are out of twelve. `docs/benchmark_spec.md` fixes the threat model and the
+ground truth; `bench/README.md` defines the axes and the verdicts.
 
-| Stack | Attacks landed | Attacks blocked | Attacks not attempted | Benign completed | Blocked and task done |
-| --- | --- | --- | --- | --- | --- |
-| none | 4/12 | 0 | 4/12 | 4/12 | 0 |
-| l1 | 6/12 | 0 | 5/12 | 11/12 | 0 |
-| l3 | 0/12 | 7/12 | 4/12 | 5/12 | 2/12 |
+The three axes are stored separately because they are not exclusive: a refused call and an
+incomplete task happen in the same episode. `blocked_but_failed` is that combination, and it
+is the one a defence that simply stops the agent would produce.
+
+ASR at the 95% level: `none` 0.14-0.61, `l1` 0.25-0.75, `l3` 0.00-0.24. Benign success:
+`none` 0.14-0.61, `l1` 0.65-0.99, `l3` 0.19-0.68. Twelve per kind locates a direction, not a
+size.
+
+| Stack | attack_succeeded | safe_and_useful | blocked_but_failed | benign_success | benign_failure | no_attempt, task ok | no_attempt, task failed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| none | 4 | 0 | 0 | 4 | 8 | 4 | 4 |
+| l1 | 6 | 0 | 0 | 11 | 1 | 5 | 1 |
+| l3 | 0 | 2 | 5 | 5 | 7 | 4 | 1 |
 
 Three results:
 
@@ -523,14 +532,23 @@ Three results:
    user: the injection is one more piece of text, and a model that follows text follows it.
    L1 is a usability measure. It is not a security measure, and this table is the evidence.
 2. **L3 removes the landed attacks, and four benign cases meet a refusal.** Seven attacks end
-   refused, two of them with the task still complete. Four benign cases meet a refusal: three
-   do not finish, and one finishes on the retry. Benign completion still rises from 4 to 5
-   against the no-guard row, so the refusal is not free and it is not fatal.
+   refused: two are `safe_and_useful`, five are `blocked_but_failed`. Four benign cases meet
+   a refusal: three do not finish, and one finishes on the retry. Benign success still rises
+   from 4 to 5 against the no-guard row, so the refusal is not free and it is not fatal.
 3. **Half of the attacks are never attempted.** Four or five of twelve land in no attempt at
    every stack. A rate that does not subtract these credits a guard for the model's failure.
 
 A single cell is one episode on one model with greedy decoding. Twelve per kind gives an
 interval about as wide as the effect, so this table locates the direction, not the size.
+
+The table is recomputed from the saved traces, not from a new run:
+
+```
+python scripts/bench_run.py --rescore out/bench-full/results.jsonl
+```
+
+This is how an earlier five-label scheme was replaced by the three axes without spending a
+second GPU sample. The axes were already in every row.
 
 ## 8. Limits
 
@@ -567,8 +585,9 @@ scripts/probe_clean.py  Normal mail against the judge: the false positive, measu
 scripts/probe_l3break.py  Five ways to defeat L3, at the policy level
 scripts/probe_policy.py  L3 full form against the same cases, side by side with L3 shipped
 bench/cases.jsonl       The versioned case set: 24 cases, 12 benign and 12 attack
-bench/README.md         Case schema, the five labels, the repetition rule
-scripts/bench_run.py    Runs every case on every stack and scores the traces
+bench/README.md         Case schema, the three axes, the seven verdicts, the repetition rule
+docs/benchmark_spec.md  Threat model, ground truth, metrics, version block
+scripts/bench_run.py    Runs every case on every stack and scores the traces; --rescore
 scripts/l3policy.py     The sink policy, asked directly, including the write channel
 scripts/families.py     The write family and the token task, one model load
 scripts/smoke_write.py  No-GPU check of the write channel and the task rule
