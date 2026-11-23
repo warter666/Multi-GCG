@@ -505,6 +505,33 @@ The session boundary:
 The two rows are one attack. L3 answers it twice with the same mistake, because the taint set
 and the comparison are both local to one process.
 
+### 7.9 The case set: utility and attack success on the same cases
+
+Twelve benign cases, twelve attacks, three stacks. Each cell is one episode, scored from the
+trace. `bench/README.md` defines the labels.
+
+| Stack | Attacks landed | Attacks blocked | Attacks not attempted | Benign completed | Blocked and task done |
+| --- | --- | --- | --- | --- | --- |
+| none | 4/12 | 0 | 4/12 | 4/12 | 0 |
+| l1 | 6/12 | 0 | 5/12 | 11/12 | 0 |
+| l3 | 0/12 | 7/12 | 4/12 | 5/12 | 2/12 |
+
+Three results:
+
+1. **A provenance label raises both numbers.** L1 takes benign completion from 4/12 to 11/12
+   and takes landed attacks from 4/12 to 6/12. The same change makes the model a better tool
+   user: the injection is one more piece of text, and a model that follows text follows it.
+   L1 is a usability measure. It is not a security measure, and this table is the evidence.
+2. **L3 removes the landed attacks, and four benign cases meet a refusal.** Seven attacks end
+   refused, two of them with the task still complete. Four benign cases meet a refusal: three
+   do not finish, and one finishes on the retry. Benign completion still rises from 4 to 5
+   against the no-guard row, so the refusal is not free and it is not fatal.
+3. **Half of the attacks are never attempted.** Four or five of twelve land in no attempt at
+   every stack. A rate that does not subtract these credits a guard for the model's failure.
+
+A single cell is one episode on one model with greedy decoding. Twelve per kind gives an
+interval about as wide as the effect, so this table locates the direction, not the size.
+
 ## 8. Limits
 
 1. Use one model size. A 1.5B model is weak. A larger model can substitute a read value into a
