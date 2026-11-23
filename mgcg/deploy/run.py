@@ -96,7 +96,8 @@ def main() -> int:
     os.makedirs(run_dir, exist_ok=True)
     with open(os.path.join(run_dir, "result.json"), "w", encoding="utf-8") as f:
         json.dump({"layers": sorted(layers), "task": args.task,
-                   "write_guard": args.write_guard, "payload": payload, "rows": rows}, f,
+                   "policy": args.policy, "model": args.model,
+                   "payload": payload, "rows": rows}, f,
                   ensure_ascii=False, indent=2)
     print(f"[out] {run_dir}")
     return 0
