@@ -1,12 +1,12 @@
 # Benchmark specification
 
-Version 0.1. This document fixes what the case set measures. A result is comparable only to
+Version 0.2. This document fixes what the case set measures. A result is comparable only to
 results produced under the same version block.
 
 ```
-benchmark_version   0.1     bench/cases.jsonl
-evaluator_version   0.1     scripts/bench_run.py, the three axes and the verdicts
-policy_version      none | l1 | l2 | l3 | l3w | l1l2l3
+benchmark_version   0.2     bench/cases.jsonl, 36 cases: 24 benign, 12 attack
+evaluator_version   0.2     scripts/bench_run.py, the three axes and the verdicts
+policy_version      input layers x L3 policy: none | l1 | l2 | ship | full | l1full
 model              Qwen/Qwen2.5-1.5B-Instruct, bfloat16
 decoding           greedy, seed 0, max_steps 4, max_new_tokens 96
 ```
@@ -105,3 +105,12 @@ A result may not be compared across a change to any of: `cases.jsonl`, `Run.atta
 `Run.attack_recovered()`, `Run.damage()`, `Run.task()`, the `protocol` rule, or the policy
 under a named `policy_version`. When one of these changes, bump the version and re-run rather
 than mixing old and new rows.
+
+Version 0.2 adds twelve benign cases and six named task requirements to `Run.task()`. The
+0.1 rows are not comparable to 0.2 rows: the benign denominator changed from 12 to 24, and a
+task now completes only when its named steps complete. The attack rows were re-run, not
+carried over.
+
+L3 is one policy enforcement layer and two named policies, `ship` and `full`. A row is
+comparable only to rows with the same `policy_version`; the shipped rules before and after the
+refactor are the same rules, but the decision path changed, so no old row is reused.

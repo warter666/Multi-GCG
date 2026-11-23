@@ -1043,3 +1043,35 @@ now compares the raw string against raw stored values.
 
 Both were found by running the ablation, not by reading it. The table is worth less than the
 correction it forced.
+
+## L3 rebuilt as one layer
+
+The four mechanisms were previously four switches on one class, and two implementations
+(SinkPolicy in guards.py, Policy in policy.py) competed for the same decision. That is the
+root of both problems seen earlier: the layer that was measured was not the layer that
+executed, and the ablation table described a system that did not exist.
+
+What replaced it:
+
+- one entry point, `PolicyEngine.evaluate(request)`, with `record_result()` as the only
+  writer of provenance. A refused read cannot taint anything.
+- one request shape, `ToolRequest`: tool name from a registry, path with `..` resolved, URL
+  split into scheme/host/port, recipient field parsed into addresses.
+- structural normalisation (canonical.py) separated from content detection (encoded.py).
+  Path, URL, address and tool-name normalisation no longer contains any attack string;
+  base64, hex and reversed text are named detectors with a stated scope.
+- two policies, `ship` and `full`. The CLI has `--policy none|ship|full`; there is no
+  `--write-guard` and no ablation switch. Internal ablation removes a mechanism from the
+  complete layer, in a script, and is reported as a secondary experiment.
+
+On the 26-decision corpus (bench/policy_cases.jsonl), `full` matches every expectation; the
+mechanisms that move verdicts are write protection 6, encoded detection 4, destination 2,
+default deny 1, cross-process provenance 1. `ship` differs from `full` on 13 of 26. One case
+(P-22) is held up by two mechanisms at once, which is why a single-removal table cannot price
+them separately.
+
+The residual gap is unchanged and now stated as P-25: an ordinary customer row posted to a
+host that has a rule is allowed by every configuration. No mechanism in the layer owns
+"sensitive but contains no secret". Asking whether a request is authorised by the user's task
+is a semantic question with a different object; the layer does not ask it, and section 8 says
+so.

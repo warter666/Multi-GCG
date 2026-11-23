@@ -23,11 +23,11 @@ def main() -> int:
     ap.add_argument("--dtype", default="auto")
     ap.add_argument("--payload", default="", help="inline text placed inside the customer mail")
     ap.add_argument("--payload-file", default=None)
-    ap.add_argument("--layers", default="", help="comma list from l1,l2,l3; empty means none")
+    ap.add_argument("--layers", default="", help="comma list from l1,l2; empty means none")
     ap.add_argument("--task", default="mail", choices=("mail", "token"),
                     help="mail: summarise message 0; token: also read the credential legally")
-    ap.add_argument("--write-guard", action="store_true",
-                    help="L3 also refuses writes to protected paths (the 'after' policy)")
+    ap.add_argument("--policy", default="none", choices=("none", "ship", "full"),
+                    help="L3 execution layer: none, the shipped rules, or the full layer")
     ap.add_argument("--runs", type=int, default=1)
     ap.add_argument("--max-steps", type=int, default=4)
     ap.add_argument("--max-new-tokens", type=int, default=256)
@@ -41,12 +41,14 @@ def main() -> int:
         with open(args.payload_file, encoding="utf-8") as f:
             payload = f.read().strip()
     layers = {s.strip() for s in args.layers.split(",") if s.strip()}
+    if args.policy != "none":
+        layers.add("l3")
 
     tok, model, _ = load_model(args.model, args.device, args.dtype)
     judge = Judge(tok, model, threshold=args.judge_threshold) if "l2" in layers else None
 
-    print(f"[layers] {sorted(layers) or ['none']}   payload {len(payload)} chars   "
-          f"task={args.task}   write_guard={args.write_guard}")
+    print(f"[layers] {sorted(layers) or ['none']}   policy={args.policy}   "
+          f"payload {len(payload)} chars   task={args.task}")
     print(f"[payload] {payload[:160]!r}")
 
     task_text = TASK_TOKEN if args.task == "token" else TASK
@@ -55,7 +57,7 @@ def main() -> int:
         t0 = time.time()
         run = run_episode(tok, model, payload, layers, max_steps=args.max_steps,
                           max_new_tokens=args.max_new_tokens, seed=args.seed + i, judge=judge,
-                          task=task_text, write_guard=args.write_guard)
+                          task=task_text, policy=args.policy)
         attack, why_a = run.attack()
         task, why_t = run.task(need=args.task)
         blocked = [e for e in run.events if e.get("blocked_by")]

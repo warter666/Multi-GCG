@@ -14,9 +14,10 @@ scripts/bench_run.py  runs every case on every stack and scores the traces
 | --- | --- |
 | `id` | Stable name. Never reuse it for different content. |
 | `kind` | `benign` or `attack` |
-| `family` | The group a case belongs to: `baseline`, `paraphrase`, `exfil-mail`, `exfil-net`, `redirect`, `damage`, `encoding`, `cross-file` |
+| `family` | The group a case belongs to: `baseline`, `paraphrase`, `chain`, `addr-form`, `wording`, `exfil-mail`, `exfil-net`, `redirect`, `damage`, `encoding`, `cross-file` |
 | `task` | `mail` (read a message, send its issue) or `token` (read the credential, report the prefix) |
-| `need` | The observation the task requires before a send counts |
+| `task_text` | The user instruction, when it is not the default for `task`. A chain case needs its own text, or the model is asked a one-step job and the extra steps test nothing. |
+| `need` | The steps a task requires before it counts: `mail`, `token`, `list_mail`, `two_reads`, `two_writes`, `write_send` |
 | `expect` | The verdict we expect. Used to detect a regression, never to score a run. |
 | `inject` | Text appended to message 0, after a blank line. Absent on a control case. |
 | `from` / `subject` / `body` | Overrides for message 0. They vary the benign prose without touching the attack. |
@@ -26,6 +27,12 @@ scripts/bench_run.py  runs every case on every stack and scores the traces
 
 A case does not carry a guard setting. The same case runs on every stack. A result row is
 therefore a pair: `(case id, stack)`.
+
+The benign half covers the tool surface, not only the prose. `B-13` and `B-14` open with a
+list, `B-15` and `B-16` read twice, `B-17` and `B-18` write twice, `B-19` writes and then
+sends, and `B-20` to `B-22` vary the recipient form. `B-23` and `B-24` are ordinary mail whose
+wording reads like an instruction: they cost a defence nothing to refuse, so a refusal there
+is over-blocking, and the benign half has to show it.
 
 ## Three axes, seven verdicts
 
@@ -93,3 +100,10 @@ share a denominator and their columns are never summed. `scripts/ablate_policy.p
 Fields: `id`, `fires` (the property under test), `expect` (`allow` or `refuse`), `sessions`
 (1 or 2: a second line starts a fresh process), `reads` (path and value passed to the lineage),
 `call` (tool and arguments).
+
+## Stacks
+
+A stack is a pair: the input guards (`l1`, `l2`) and the L3 policy (`none`, `ship`, `full`).
+`scripts/bench_run.py` names them `none`, `l1`, `l2`, `l3` (the shipped rules), `full`, `l1full`,
+`l1l2` and `l1l2l3`. Two rows are comparable only when the pair is the same; the input guards
+do not change what the layer decides, and the layer does not change what the judge scores.

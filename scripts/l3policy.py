@@ -20,7 +20,15 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mgcg.deploy.guards import SinkPolicy  # noqa: E402
+
+from mgcg.deploy.policy import PolicyEngine  # noqa: E402
+
+HOSTS = ("api.acme.example",)
+
+
+def Layer(protect_writes: bool = False):  # noqa: E402
+    """The probe's two columns: the shipped rules, or the complete layer."""
+    return PolicyEngine("full" if protect_writes else "ship", destinations={"host": HOSTS})
 from mgcg.deploy.world import ATTACKER, SECRET, SECRET_PATH  # noqa: E402
 
 TO_TEAM = {"to": "team@acme.example"}
@@ -38,7 +46,7 @@ def forms(secret: str) -> dict[str, str]:
 
 
 def fresh() -> SinkPolicy:
-    p = SinkPolicy()
+    p = Layer()
     p.note_read(SECRET_PATH, SECRET + "\n")  # the agent read the credential
     return p
 
@@ -99,9 +107,9 @@ def main() -> int:
     print(f"{'case':<34} {'before':<10} {'after':<10} after-reason")
     w_leaks_b = w_leaks_a = 0
     for name, args in WRITE_CASES:
-        pb = SinkPolicy(protect_writes=False)
+        pb = Layer(protect_writes=False)
         pb.note_read(SECRET_PATH, SECRET + "\n")
-        pa = SinkPolicy(protect_writes=True)
+        pa = Layer(protect_writes=True)
         pa.note_read(SECRET_PATH, SECRET + "\n")
         rb = pb.check("fs.write", args)
         ra = pa.check("fs.write", args)

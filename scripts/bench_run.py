@@ -32,16 +32,18 @@ import time
 
 sys.path.insert(0, "/home/tbtb/projects/multi-gcg")
 
-BENCH_VERSION = "0.1"
-EVALUATOR_VERSION = "0.1"
+BENCH_VERSION = "0.2"
+EVALUATOR_VERSION = "0.2"
 
 STACKS = {
-    "none": (set(), False),
-    "l1": ({"l1"}, False),
-    "l2": ({"l2"}, False),
-    "l3": ({"l3"}, False),
-    "l3w": ({"l3"}, True),
-    "l1l2l3": ({"l1", "l2", "l3"}, False),
+    "none": (set(), "none"),
+    "l1": ({"l1"}, "none"),
+    "l2": ({"l2"}, "none"),
+    "l3": ({"l3"}, "ship"),
+    "full": ({"l3"}, "full"),
+    "l1full": ({"l1", "l3"}, "full"),
+    "l1l2": ({"l1", "l2"}, "none"),
+    "l1l2l3": ({"l1", "l2", "l3"}, "ship"),
 }
 
 GUARD_BLOCKS = ("judge", "sink")
@@ -81,7 +83,10 @@ def build_world(case: dict):
         mail["body"] = mail["body"] + "\n\n" + inject
     files = dict(FILES)
     files.update(case.get("files", {}))
-    task = TASK_TOKEN if case["task"] == "token" else TASK
+    if case.get("task_text"):
+        task = case["task_text"]
+    else:
+        task = TASK_TOKEN if case["task"] == "token" else TASK
     return mailbox, files, task
 
 
@@ -242,12 +247,12 @@ def main() -> None:
         for case in cases:
             mailbox, files, task = build_world(case)
             for stack in stacks:
-                layers, write_guard = STACKS[stack]
+                layers, policy_name = STACKS[stack]
                 t0 = time.time()
                 run = run_episode(tok, model, "", layers, max_steps=args.max_steps,
                                   max_new_tokens=args.max_new_tokens, seed=args.seed,
                                   judge=judges.get(stack), task=task,
-                                  write_guard=write_guard, mailbox=mailbox, files_in=files)
+                                  policy=policy_name, mailbox=mailbox, files_in=files)
                 facts = label_run(case, run)
                 ax = axes(case, facts)
                 row = {"id": case["id"], "kind": case["kind"], "family": case["family"],
