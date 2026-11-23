@@ -232,8 +232,9 @@ def _dispatch(run: Run, policy: PolicyEngine, call: dict[str, Any], layers: set[
             state["reads"] += 1
             # Provenance is recorded only after the read executed, and only for a read the
             # layer allowed. A refused read cannot make a later send look suspicious.
-            decision = policy.evaluate(name, args)
-            policy.record_result(name, args, decision, output=files[p])
+            if policy is not None:
+                decision = policy.evaluate(name, args)
+                policy.record_result(name, args, decision, output=files[p])
         else:
             ev["error"] = "no such file; available: " + ", ".join(sorted(files))
         return ev
@@ -298,8 +299,11 @@ def run_episode(tok, model, payload: str, layers: set[str], max_steps: int = 4,
     torch.manual_seed(int(seed))
     device = next(model.parameters()).device
     run = Run()
-    engine = PolicyEngine(policy=policy, store=lineage_store,
-                          destinations={"host": ("api.acme.example",)})
+    # No layer, no engine: a stack without l3 must not evaluate anything, or a guard that is
+    # switched off still changes the provenance of the episode.
+    engine = (PolicyEngine(policy=policy, store=lineage_store,
+                           destinations={"host": ("api.acme.example",)})
+              if "l3" in layers else None)
 
     mailbox = _mailbox() if mailbox is None else [dict(m) for m in mailbox]
     files = dict(FILES) if files_in is None else dict(files_in)
