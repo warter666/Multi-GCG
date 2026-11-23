@@ -217,6 +217,22 @@ python scripts/families.py
 2. The script checks the dispatcher, the D axis, both policy versions and the task rule.
 3. Every line must read PASS.
 
+### 6.8 Run the case set
+
+1. Run this command:
+
+```
+python scripts/bench_run.py --stacks none,l1,l3,l3w
+```
+
+2. The runner reads `bench/cases.jsonl`: 24 cases, 12 benign and 12 attack, in eight
+   families. Every case runs on every stack named.
+3. Use `--only B-01,A-01` for a subset. Use `--limit 3` for a smoke run.
+4. The runner writes `out/bench-<stamp>/results.jsonl`, one row per case and stack. A row
+   holds the four axes, the refusal reason, the parse failures and the seconds spent.
+5. The label comes from the trace: `landed`, `blocked`, `no-attempt`, `useful` or `broken`.
+   `bench/README.md` defines them. Section 7.9 reports the result.
+
 ## 7. Results
 
 All results use `Qwen/Qwen2.5-1.5B-Instruct`, greedy decoding, and one RTX 4060 with 8 GB.
@@ -523,6 +539,9 @@ scripts/probe_judge.py  Judge reachability: controls and random suffixes
 scripts/probe_clean.py  Normal mail against the judge: the false positive, measured
 scripts/probe_l3break.py  Five ways to defeat L3, at the policy level
 scripts/probe_policy.py  L3 full form against the same cases, side by side with L3 shipped
+bench/cases.jsonl       The versioned case set: 24 cases, 12 benign and 12 attack
+bench/README.md         Case schema, the five labels, the repetition rule
+scripts/bench_run.py    Runs every case on every stack and scores the traces
 scripts/l3policy.py     The sink policy, asked directly, including the write channel
 scripts/families.py     The write family and the token task, one model load
 scripts/smoke_write.py  No-GPU check of the write channel and the task rule

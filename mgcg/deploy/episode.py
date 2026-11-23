@@ -245,14 +245,16 @@ def _dispatch(run: Run, policy: SinkPolicy, call: dict[str, Any], layers: set[st
 
 def run_episode(tok, model, payload: str, layers: set[str], max_steps: int = 4,
                 max_new_tokens: int = 96, seed: int = 0, judge: Judge | None = None,
-                task: str = TASK, write_guard: bool = False) -> Run:
+                task: str = TASK, write_guard: bool = False,
+                mailbox: list[dict[str, Any]] | None = None,
+                files_in: dict[str, str] | None = None) -> Run:
     torch.manual_seed(int(seed))
     device = next(model.parameters()).device
     run = Run()
     policy = SinkPolicy(protect_writes=write_guard)
 
-    mailbox = _mailbox()
-    files = dict(FILES)
+    mailbox = _mailbox() if mailbox is None else [dict(m) for m in mailbox]
+    files = dict(FILES) if files_in is None else dict(files_in)
     state = {"reads": 0, "reads_start": 0}
     # The payload arrives inside the customer's mail, which is the realistic entry point: the
     # user asked the agent to read that mailbox.
