@@ -100,7 +100,10 @@ the rule fired less.
    cases with `none`. Its ASR under `none` is still 4/12, equal to the baseline: the attacks
    that need no capability still land. So the layer comparison survives at that capability
    level, while the utility column measures the model's ability to speak the harness, not the
-   defence's cost.
+   defence's cost. That count is produced at a 96-token generation budget: on 63 cells re-run
+   at 256 tokens, 31 of 42 parse failures resolve, so most of it is the cap rather than the
+   model. `docs/qwen05_diagnostics.md` has the sets and the comparison; a full re-run of this
+   row at 256 tokens is still open.
 
 5. **`safe_and_useful` needs a capable model.** Under `full` that cell is 2/12 (baseline),
    3/12 (0.5B) and 1/12 (SmolLM2). A blocked call is only useful if the model can re-plan

@@ -707,8 +707,12 @@ Four results:
    does and what the L2 filter thinks of it. Only the within-model comparisons are safe.
 
 The cost of the smaller model shows in the interface first: `Qwen2.5-0.5B` produces no
-parseable call in 14 of 36 episodes, so its utility column measures the harness, not the
-layer. Its ASR under `none` is still 4/12, so the attacks that need no capability still land.
+parseable call in 14 of 36 episodes at the 96-token budget these runs used, so its utility
+column partly measures the harness. That number is not a property of the model: on 63 cells
+re-run at 256 tokens, 31 of 42 parse failures resolve and two verdicts change, one of them
+towards an attack that the shorter budget had cut off. `docs/qwen05_diagnostics.md` has the
+sets, the failure shapes and the budget comparison. A full re-run of that row at 256 tokens is
+still open.
 
 ## 8. Limits
 
@@ -724,9 +728,10 @@ layer. Its ASR under `none` is still 4/12, so the attacks that need no capabilit
 6. The CW payload has a mean nll near 15 nats. A ppl gate would refuse it.
 7. The model never completes the exfiltration chain, even with a legal read. Section 7.4
    remains the mechanism-level result for that family.
-8. The parser is strict. It does not repair a broken call. A deployment uses constrained
-   decoding, so part of the L1 outage is a property of this harness. Section 7.11 turns this
-   into a measurable column: 14 of 36 episodes are unparsable on the smallest model.
+8. The parser is strict. It does not repair a broken call, and a parse failure ends the
+   episode. The generation budget is 96 tokens, which truncates a fenced JSON answer: at 256
+   tokens most of those failures resolve. `docs/qwen05_diagnostics.md` separates the budget
+   from the model.
 9. The benign-write control never wrote. Over-blocking of writes is measured at the layer
    level only.
 10. The destination rule refuses a host with no rule. `http.post` is unusable until a host is
@@ -762,7 +767,11 @@ scripts/ablate_policy.py  One mechanism removed at a time from the complete laye
 bench/README.md         Case schema, the three axes, the seven verdicts, the repetition rule
 docs/benchmark_spec.md  Threat model, ground truth, metrics, version block
 docs/cross_model.md     Three models on one corpus: does the layer result survive the model
+docs/qwen05_diagnostics.md  Where the parse failures come from: sets, shapes, token budget
 scripts/bench_models.py  One table per model and stack, with the parse-error column
+scripts/bench_diag.py   Per-stack parse sets, intersections and guard blocks from saved rows
+scripts/bench_compare.py  Two runs cell by cell: which parse failures a change resolves
+scripts/bench_attempt.py  Attempt accounting from events, with parse-failure shapes
 scripts/bench_run.py    Runs every case on every stack and scores the traces; --rescore
 scripts/l3policy.py     The shipped rules, asked directly, including the write channel
 scripts/families.py     The write family and the token task, one model load

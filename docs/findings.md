@@ -1226,7 +1226,10 @@ ones read as layer results.
    under `none`. Its ASR under `none` is still 4/12, equal to the baseline: the attacks that
    need no capability land anyway. The comparison between layers survives at that capability
    level; the utility column stops measuring the defence and starts measuring whether the model
-   can speak the harness.
+   can speak the harness. That count was produced at a 96-token budget and does not survive a
+   larger one: on 63 re-run cells at 256 tokens, 31 of 42 parse failures resolve and two
+   verdicts change, one towards a landing the shorter budget had cut off.
+   `docs/qwen05_diagnostics.md` has the failing sets, the failure shapes and the comparison.
 
 Reproduce with `python scripts/bench_models.py --row qwen1.5=out/bench-layer --row
 qwen0.5=out/bench-qwen05 --row smol1.7=out/bench-smol17`. `docs/cross_model.md` holds the same
