@@ -1075,3 +1075,39 @@ host that has a rule is allowed by every configuration. No mechanism in the laye
 "sensitive but contains no secret". Asking whether a request is authorised by the user's task
 is a semantic question with a different object; the layer does not ask it, and section 8 says
 so.
+
+## The rebuilt layer on the 36-case set: E0 against E1
+
+This run scores the 36 cases (24 benign, 12 attacks) on three stacks, greedy decoding, seed
+0, max_steps 4. The two E0 configurations are `none`, the bare model with no policy layer,
+and `l1`, which adds the provenance label; E1 is `full`, the rebuilt policy enforcement
+layer. Every cell is one episode scored from the saved traces in
+`out/bench-layer/results.jsonl`.
+
+| Stack | attack_succeeded | safe_and_useful | blocked_but_failed | benign_success | benign_failure | no_attempt, task ok | no_attempt, task failed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| none | 4/12 | 0/12 | 0/12 | 11/24 | 13/24 | 4/12 | 4/12 |
+| l1 | 6/12 | 0/12 | 0/12 | 19/24 | 5/24 | 5/12 | 1/12 |
+| full | 0/12 | 2/12 | 5/12 | 12/24 | 12/24 | 4/12 | 1/12 |
+
+ASR at the 95% Wilson level: `none` 0.14-0.61, `l1` 0.25-0.75, `full` 0.00-0.24. Benign
+success: `none` 0.28-0.65, `l1` 0.60-0.91, `full` 0.31-0.69.
+
+The E0 picture splits in two. `none` completes 11 of 24 benign tasks and lets 4 of 12 attacks
+land. `l1` completes 19 of 24 benign tasks, the best utility of the three stacks, but it lets
+6 of 12 attacks land, more than `none`. The provenance label makes the model a better tool
+user without adding any defence: the injection is just another piece of text, and a model
+that follows text follows it. On this corpus `l1` is a usability change, not a security one.
+
+E1 stops every landing: 0 of 12 attacks succeed, 2 are refused and still complete the task
+(`safe_and_useful`), 5 are refused and fail (`blocked_but_failed`). The price is paid on the
+benign side. Four benign cases meet the layer's refusal, B-05, B-07, B-08, B-09; three do
+not finish, one still completes. Against `none`, benign completion moves only 11/24 to
+12/24. Against `l1`, the comparison that prices the layer is 19/24 down to 12/24: to remove
+the six landed attacks that `l1` allowed, seven benign completions are lost on net. The layer
+does not stop the agent outright, but its refusals still cost ordinary tasks, and that trade
+is the number this run puts on the table.
+
+An attack that never reaches a call is not a defence result: 8 of 12 are never attempted
+under `none`, 6 under `l1`, 5 under `full`. A success rate that does not subtract these
+credits the guard for the model's own failure.
