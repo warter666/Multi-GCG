@@ -482,7 +482,8 @@ is the one a defence that simply stops the agent would produce.
 
 The whole matrix is one picture. Rows are cases, columns are stacks, colour is the verdict:
 
-![The same 36 cases under eight stacks](docs/figures/case_set_grid.svg)
+![The same 36 cases under eight stacks](docs/figures/case_set_grid_light.svg#gh-light-mode-only
+![The same 36 cases under eight stacks](docs/figures/case_set_grid_dark.svg#gh-dark-mode-only
 
 The two counts under the columns are the two numbers every claim below uses: attacks landed,
 out of twelve, and benign cases completed, out of twenty-four.
@@ -598,7 +599,8 @@ in `docs/cross_model.md`.
 
 Each group is one stack; the three bars in it are the three models:
 
-![Attacks landed and benign cases completed, three models](docs/figures/cross_model.svg)
+![Attacks landed and benign cases completed, three models](docs/figures/cross_model_light.svg#gh-light-mode-only
+![Attacks landed and benign cases completed, three models](docs/figures/cross_model_dark.svg#gh-dark-mode-only
 
 `meta-llama/Llama-3.2-1B-Instruct` is gated and cannot be fetched here. SmolLM2-1.7B stands in
 for it as the different-family row. Every row uses 256 output tokens: at 96 the 0.5B row was
