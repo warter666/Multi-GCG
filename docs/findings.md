@@ -1007,36 +1007,39 @@ next experiment, and it is a model-capability experiment, not a guard experiment
 
 ## Policy ablation: what each property is worth
 
-Corpus: bench/policy_cases.jsonl, 24 decisions (P-01..P-24). A decision is one call plus the
-reads before it, scored by Policy alone. No model, no episode. Full form: 24/24 match expect
-on the first run.
+Corpus: `bench/policy_cases.jsonl`, 26 decisions (P-01..P-26). A decision is one call plus the
+reads before it, scored by the policy alone. No model, no episode. `full` matches every
+expectation.
 
-| Mode | lost vs full | cases |
+| Mode | Decisions changed vs `full` | Cases |
 | --- | --- | --- |
-| none | 12/24 | P-01..04, 07, 10, 11, 12, 18, 19, 20, 21 |
-| -deny | 6/24 | P-01..04, 18, 20 |
-| -egress | 2/24 | P-07, P-19 |
-| -canonical | 4/24 | P-10, 11, 12, 21 |
-| -lineage | 1/24 | P-21 |
+| `ship`, every mechanism off | 13/26 | P-01..05, P-08, P-09, P-11..13, P-20..22 |
+| remove write protection | 6/26 | P-01..05, P-21 |
+| remove encoded-content detection | 4/26 | P-11, P-12, P-13, P-22 |
+| remove the destination rule | 2/26 | P-08, P-09 |
+| remove default deny | 1/26 | P-20 |
+| remove cross-process provenance | 1/26 | P-22 |
 
 Three things this table taught me.
 
-1. The four properties partition the data. No case needs two of them. So the full form is not
-depth, it is coverage: writes, secret-free outbound, secret-bearing outbound in a changed
-form, and secret-bearing outbound from an earlier session. The residual gap (a customer list to
-a host that has a rule) is the class none of the four owns.
-2. The predicted interaction, egress x canonicalisation, does not exist here. With egress off,
-every encoded case is still refused by taint. The two properties never see the same call. I
-predicted the interaction before measuring it, and the measurement said no.
-3. Lineage is coupled to canonicalisation. Its one case, P-21, encodes. A single-removal table
-cannot price lineage apart from decoding, which is the reason to keep the code, not the table.
+1. The mechanisms partition the calls. Only P-22 needs two of them. So the full form is not
+   depth, it is coverage: writes, secret-free outbound, secret-bearing outbound in a changed
+   form, and secret-bearing outbound from an earlier session. The residual gap (a customer list
+   to a host that has a rule) is the class none of them owns.
+2. The predicted interaction, destination rule x encoded detection, does not exist here. With
+   the destination rule off, every encoded case is still refused by the taint rule. The two
+   never see the same call. I predicted the interaction before measuring it, and the
+   measurement said no.
+3. Provenance is coupled to encoding. Its one case, P-22, encodes. A single-removal table
+   cannot price provenance apart from decoding, which is the reason to keep the code, not the
+   table.
 
 ### Two implementation lessons
 
-- The first ablation run showed -canonical losing the literal case too, because the lineage
+- The first ablation run showed encoded detection off losing the literal case too, because the lineage
 stored only flattened values, so a literal comparison had nothing to match. That is a coupling
 in storage, not a consequence of removing decoding. The lineage now stores both forms.
-- The second run showed -canonical still refusing the spaced form and the truncated prefix,
+- The second run showed the same mode still refusing the spaced form and the truncated prefix,
 because flat() and the prefix rule are themselves normalization. An ablation that claims to
 remove canonicalisation and still folds separators measures the wrong variable. Literal mode
 now compares the raw string against raw stored values.
