@@ -153,9 +153,9 @@ Two statements from the 96-token reading are withdrawn:
 - "its utility column measures the harness" was right at 96 and wrong at 256: 15/24 benign
   completion is in the same band as the 1.5B baseline's 11/24.
 
-What remains open: the other two models in `docs/cross_model.md` are still at 96 tokens. The
-table there now carries a budget column and states that no cross-model delta is computed, which
-is the smaller fix; the larger one is a matched re-run of the 1.5B and SmolLM2 rows at 256.
+What remains open: nothing on the budget. The other two models were re-run at 256 as well, so
+`docs/cross_model.md` now holds three rows on one budget, and the SmolLM2 row moved as hard as
+this one did - benign 9/24 to 17/24, landed 3/12 to 0/12.
 
 ## 6. Attempt accounting, and one trap in the verdict-derived rate
 
@@ -243,6 +243,9 @@ out/bench-qwen05-tok256-full the 256-token run, 108 cells (the reported row)
 out/bench-qwen05-tok256*    the earlier re-run of the 21 previously failing cases, 63 cells
 out/attempt-qwen05-tok256.log  attempt accounting at 256 over the 12 attack cases
 out/attempt-qwen05-2.log    the same accounting at 96
+out/bench-qwen15-tok256     the 1.5B row at 256, 108 cells
+out/bench-smol17-tok256-full the SmolLM2 row at 256, 108 cells, merged from chunks
+out/attempt-smol17-tok256.log attempt accounting for that row, 36 attack cells
 ```
 
 Row-level numbers can be recomputed without a GPU:
