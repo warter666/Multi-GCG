@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="300" viewBox="0 0 560 300" font-family="Helvetica,Arial,sans-serif">
+<rect width="560" height="300" fill="#ffffff"/>
+<text x="12" y="22" font-size="13" font-weight="bold" fill="#12181d">One mechanism removed at a time, 26 decisions</text>
+<text x="12" y="38" font-size="9.5" fill="#5b666d">Length is decisions that change against an unmodified `full`. No model runs.</text>
+<line x1="358.0" y1="66" x2="358.0" y2="266" stroke="#2b343a" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="358.0" y="60" font-size="9" fill="#5b666d" text-anchor="middle">13 of 26</text>
+<text x="236" y="91.0" font-size="9" fill="#12181d" text-anchor="end">`ship`, every mechanism off</text>
+<rect x="246" y="81" width="112.0" height="16" fill="#b23b3b"/>
+<text x="364.0" y="93.0" font-size="8.5" fill="#12181d">13/26</text>
+<text x="236" y="119.0" font-size="9" fill="#12181d" text-anchor="end">remove write protection</text>
+<rect x="246" y="109" width="51.7" height="16" fill="#b23b3b"/>
+<text x="303.7" y="121.0" font-size="8.5" fill="#12181d">6/26</text>
+<text x="236" y="147.0" font-size="9" fill="#12181d" text-anchor="end">remove encoded-content detection</text>
+<rect x="246" y="137" width="34.5" height="16" fill="#d9913f"/>
+<text x="286.5" y="149.0" font-size="8.5" fill="#12181d">4/26</text>
+<text x="236" y="175.0" font-size="9" fill="#12181d" text-anchor="end">remove the destination rule</text>
+<rect x="246" y="165" width="17.2" height="16" fill="#d9913f"/>
+<text x="269.2" y="177.0" font-size="8.5" fill="#12181d">2/26</text>
+<text x="236" y="203.0" font-size="9" fill="#12181d" text-anchor="end">remove cross-process provenance</text>
+<rect x="246" y="193" width="8.6" height="16" fill="#d9913f"/>
+<text x="260.6" y="205.0" font-size="8.5" fill="#12181d">1/26</text>
+<text x="236" y="231.0" font-size="9" fill="#12181d" text-anchor="end">remove default deny</text>
+<rect x="246" y="221" width="8.6" height="16" fill="#d9913f"/>
+<text x="260.6" y="233.0" font-size="8.5" fill="#12181d">1/26</text>
+<text x="236" y="259.0" font-size="9" fill="#12181d" text-anchor="end">`full`, nothing removed</text>
+<rect x="246" y="249" width="0.0" height="16" fill="#4a83b0"/>
+<text x="252.0" y="261.0" font-size="8.5" fill="#12181d">0/26</text>
+</svg>
