@@ -1236,3 +1236,15 @@ ones read as layer results.
 Reproduce with `python scripts/bench_models.py --row qwen1.5=out/bench-qwen15-tok256 --row
 qwen0.5=out/bench-qwen05-tok256-full --row smol1.7=out/bench-smol17-tok256-full`.
 `docs/cross_model.md` holds the same table with intervals and the limit notes.
+
+## Summary figures
+
+The documents carry these compact figures. They come from the tables in this file.
+
+| Figure | Shows | Tables |
+| --- | --- | --- |
+| `figures/pact_ladder_{light,dark}.svg` | Six texts against the judge, threshold at 0.5 | Section on the judge |
+| `figures/l3_pairs_{light,dark}.svg` | Thirteen calls under `ship` and under `full` | The sink, and the full form |
+| `figures/ablation_{light,dark}.svg` | One mechanism removed at a time, 26 decisions | The ablation |
+| `figures/case_set_grid_{light,dark}.svg` | 36 cases against eight stacks | The case set |
+| `figures/cross_model_{light,dark}.svg` | Three models, three stacks | Cross-model |

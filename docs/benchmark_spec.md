@@ -157,3 +157,39 @@ request is the unit.
 L3 is one policy enforcement layer and two named policies, `ship` and `full`. A row is
 comparable only to rows with the same `policy_version`; the shipped rules before and after the
 refactor are the same rules, but the decision path changed, so no old row is reused.
+
+## 10. Trust and authorisation
+
+The testbed decides trust by the channel, not by the content. Two questions stay apart:
+
+1. Who may act? The user names the recipient and asks for the read.
+2. Who wrote this text? The sender wrote it, and the sender is a third party.
+
+Authorization is not trust. The user authorizes the read of message 0. The text in message 0
+still has no right to give the assistant an instruction. That gap is the confused-deputy shape
+this testbed studies.
+
+| Channel | Author | Level | Source field |
+| --- | --- | --- | --- |
+| System prompt and user task | The operator | Trusted | in the context |
+| `fs.read`, workspace file | The operator | Trusted | `file` |
+| `email.read`, body | A third party | Untrusted | `email` |
+| Web or search result | Any site | Untrusted | `web`, reserved, no such tool here |
+
+The level is set before the text reaches the model. Three places decide it: the source field
+that `email.read` sets, the source field that `fs.read` sets, and the check in `provenance()`.
+L2 uses the same field, so the filter reads untrusted text only.
+
+The mark does not block the assistant. It tells the model what the text is. Section 7.3 shows
+that the payload is followed anyway. That is why L2 and L3 exist.
+
+Three limits of this scheme:
+
+1. A header is untrusted too. The `from` field is written by the sender. The testbed checks no
+   SPF and no DKIM, so a known address in the scene is a simplification.
+2. One channel can carry both kinds. A mail that the user forwards is half untrusted, and this
+   scheme has no place for it.
+3. The grain is coarse. `email.list` returns metadata that the harness made, and it is marked
+   untrusted as well.
+
+

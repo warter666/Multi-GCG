@@ -1,7 +1,7 @@
 # Procedures
 
-The commands behind every result in the README. The README keeps one line per goal and the
-detail lives here.
+The commands behind every result in the project. The root README keeps the two that a first
+run needs.
 
 ## Run one episode
 
@@ -48,7 +48,7 @@ python -m mgcg.attacks.cw --vocab full --prefix-file out/pay-plain.txt --k 2.0 -
 
 2. The command prints one line for each restart. It prints the smallest suffix that works.
 3. Set `--vocab invisible` for the carrier test. The script then keeps only candidates that
-   decode to invisible characters. The search fails. See the README, section 7.2.
+   decode to invisible characters. The search fails. See `findings.md`.
 
 ## Measure the layer
 
@@ -57,7 +57,7 @@ python -m mgcg.attacks.cw --vocab full --prefix-file out/pay-plain.txt --k 2.0 -
    ablation.
 2. The scripts ask L3 directly. They do not use a model.
 
-Use this procedure when the model does not chain two tool calls. See the README, section 7.4.
+Use this procedure when the model does not chain two tool calls. See `findings.md`.
 
 ## Run the write family and the token task
 
@@ -84,13 +84,14 @@ python scripts/families.py
 python scripts/bench_run.py --stacks none,l1,full
 ```
 
-2. The runner reads `bench/cases.jsonl`: 24 benign cases and 12 attacks, in eight families.
+2. The runner reads `bench/cases.jsonl`: 36 cases, 24 benign and 12 attack, in eight
+   families.
    Every case runs on every stack named.
 3. Use `--only B-01,A-01` for a subset. Use `--limit 3` for a smoke run.
 4. The runner writes `out/bench-<stamp>/results.jsonl`, one row per case and stack. A row
    holds the four axes, the refusal reason, the parse failures and the seconds spent.
 5. The label comes from the trace: `landed`, `blocked`, `no-attempt`, `useful` or `broken`.
-   `bench/README.md` defines them. The README section 7.9 reports the result.
+   `bench/README.md` defines them. `stack_matrix.md` reports the result.
 
 ## Recompute the eight-stack matrix
 

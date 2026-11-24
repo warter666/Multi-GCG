@@ -79,6 +79,9 @@ Blocked episodes under `full` are 5 (baseline), 6 (0.5B) and 0 (SmolLM2). The co
 how many attacks the model attempts, so it is a property of the trajectory supply, not of the
 rule set.
 
+![Attacks landed and benign cases completed, three models](figures/cross_model_light.svg#gh-light-mode-only)
+![Attacks landed and benign cases completed, three models](figures/cross_model_dark.svg#gh-dark-mode-only)
+
 ## Five results
 
 1. **L3 blocks the attempts the two Qwen models actually make.** `full` is 0/12 on both, with
