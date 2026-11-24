@@ -51,9 +51,9 @@ Section 7.6 measures what that costs.
 
 | Guard | Reads | Acts on | Learned |
 | --- | --- | --- | --- |
-| L1 provenance | The tool output | Adds a marker and a rule to the context | No |
-| L2 judge | The tool output, before the assistant sees it | Withholds the output | Yes |
-| L3 layer | The proposed tool call, and the stored provenance | Allows or refuses the call | No |
+| L1&nbsp;provenance | The tool output | Adds a marker and a rule to the context | No |
+| L2&nbsp;judge | The tool output, before the assistant sees it | Withholds the output | Yes |
+| L3&nbsp;layer | The proposed tool call, and the stored provenance | Allows or refuses the call | No |
 
 L2 uses the same model weights with a different question. The verdict is the logit difference
 between `Yes` and `No`. A white-box attack can optimize against that difference.
