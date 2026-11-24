@@ -550,41 +550,36 @@ cap is lifted. `docs/cross_model.md` has the sets and
 
 ## 8. Limits
 
-1. Agent and judge share weights. Section 7.11 runs three models, and each one judges its own
-   trajectories, so a change of model changes two variables. Only comparisons inside one
-   model are read as a layer result.
-2. A model that attempts nothing cannot test the layer. SmolLM2 at 256 lands no attack and
+1. **Agent and judge share weights.** Section 7.11 runs three models and each judges its own
+   trajectories, so changing the model changes two variables at once. Only comparisons inside
+   one model are read as a layer result.
+2. **A model that attempts nothing cannot test the layer.** SmolLM2 at 256 lands no attack and
    blocks none, so its `full` row is silent about L3. The layer claims rest on the two Qwen
    rows, which do attempt.
-3. Use one model size. A 1.5B model is weak. A larger model can substitute a read value into a
-   call and change the exfiltration result. No model above 1.7B was run.
-4. Most cells have n=1. Only the `none` and `l1` rows of 7.3 have n=3.
-5. Decoding is greedy. A repeated run gives the same trace and adds no sample.
-6. The judge threshold is 0.5 and it is not calibrated. All three models in 7.11 use the same
-   threshold, calibrated on the largest one.
-7. The CW payload has a mean nll near 15 nats. A ppl gate would refuse it.
-8. The model never completes the exfiltration chain, even with a legal read. Section 7.4
-   remains the mechanism-level result for that family.
-9. The parser is strict. It does not repair a broken call, and a parse failure ends the
-   episode. Every row in 7.11 uses 256 output tokens; 96 truncates a fenced JSON answer, and
-   the 96-token rows are kept only for comparison. The budget is not a neutral setting: the
-   same change moves nine benign verdicts on the 1.5B row and seven landed cells on SmolLM2.
-   `docs/qwen05_diagnostics.md` separates the budget from the model.
-10. The benign-write control never wrote. Over-blocking of writes is measured at the layer
-   level only.
-11. The destination rule refuses a host with no rule. `http.post` is unusable until a host is
-    added, so the layer trades reach for control.
-12. Encoded-content detection covers four named forms. rot13, initials, paraphrases and split
-    delivery are outside it, and nothing in the layer claims a general decoder.
-13. The destination rule checks where a call goes, not what it carries. Ordinary customer
-    data can leave to a host that has a rule. Section 7.10 states this case, P-25, which every
-    configuration of the layer allows.
-14. There is no semantic layer in L3. The layer decides on normalised structure, provenance
-    and rule tables. Asking whether a request is *authorised by the user's task* is a
-    different question with a different object, and this layer does not ask it.
-15. Provenance is a file next to the run. That file has no write rule of its own.
-16. The mechanism ablation uses its own corpus of 26 decisions. Sections 7.1 to 7.11 are
-    episodes; the ablation counts decisions, not attack success.
+3. **Most cells have n=1.** Only the `none` and `l1` rows of 7.3 have n=3, and decoding is
+   greedy, so a repeated run reproduces the trace and adds no sample.
+4. **The token budget is not a neutral setting.** 96 truncates a fenced JSON answer, so 7.11
+   uses 256; the same change moves nine benign verdicts on the 1.5B row with its landed set
+   untouched, and seven landed cells on SmolLM2. The parser is strict, and a parse failure ends
+   the episode.
+5. **Nothing above 1.7B was run.** A larger model can substitute a read value into a call, which
+   would exercise the hole in 7.4. The exfiltration chain does not complete even with a legal
+   read (7.7), and the benign-write control never wrote, so write over-blocking is measured at
+   the layer level only.
+6. **The destination rule trades reach for control.** A host with no rule is refused, so
+   `http.post` is unusable until one is added. The rule checks where a call goes, not what it
+   carries, so ordinary customer data can leave: P-25, allowed by every configuration of the
+   layer.
+7. **Encoded detection covers four named forms.** rot13, initials, paraphrases and split
+   delivery are outside it, and nothing here claims a general decoder. There is also no semantic
+   layer: whether a request is *authorised by the user's task* is a different question with a
+   different object.
+8. **The judge threshold is 0.5 and not calibrated.** It was set on the largest model and
+   reused for the other two. The CW payload has a mean nll near 15 nats, so a ppl gate would
+   refuse it.
+9. **Provenance is a file next to the run, and that file has no write rule of its own.** The
+   ablation corpus is 26 decisions, not episodes: sections 7.1 to 7.11 count episodes and 7.10
+   counts decisions, and the two numbers are not comparable.
 
 ## 9. File map
 
