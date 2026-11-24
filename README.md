@@ -156,10 +156,7 @@ python scripts/ablate_policy.py
 | --- | --- |
 | [`docs/README.md`](docs/README.md) | Index of the research documents, and the file map |
 | [`docs/procedures.md`](docs/procedures.md) | One section per experiment, with its flags |
-| [`bench/README.md`](bench/README.md) | Case schema, axes, and verdicts for `bench/` |
-| [`docs/benchmark_spec.md`](docs/benchmark_spec.md) | Threat model, ground truth, metrics, trust levels |
-| [`guardbench/SPEC.md`](guardbench/SPEC.md) | Protocol, metrics, and evaluator for `guardbench/` |
-| [`guardbench/RESULTS_v0.3.md`](guardbench/RESULTS_v0.3.md) | Full paired results and intervals |
-| [`docs/cross_model.md`](docs/cross_model.md) | Three models on one corpus |
-| [`docs/stack_matrix.md`](docs/stack_matrix.md) | Eight stacks on the same 36 cases |
+| [`bench/README.md`](bench/README.md), [`docs/benchmark_spec.md`](docs/benchmark_spec.md) | Case schema and verdicts; threat model, ground truth, trust levels |
+| [`guardbench/SPEC.md`](guardbench/SPEC.md), [`guardbench/RESULTS_v0.3.md`](guardbench/RESULTS_v0.3.md) | Protocol and evaluator; full paired results with intervals |
+| [`docs/cross_model.md`](docs/cross_model.md), [`docs/stack_matrix.md`](docs/stack_matrix.md) | Three models on one corpus; eight stacks on 36 cases |
 | [`docs/findings.md`](docs/findings.md) | Full research record: traces, failures, caveats |
