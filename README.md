@@ -7,9 +7,8 @@ recipient, a path, or a URL. The testbed asks one question: can a policy layer a
 time stop such text from causing an unauthorized tool operation, and still let the user's task
 complete?
 
-The testbed keeps four outcomes apart. A single attack rate blends them: whether the agent
-attempted an unauthorized operation, whether that operation changed state, whether the user
-task completed, and whether the policy refused a legitimate operation.
+The testbed keeps four outcomes apart: an attempt, a state change, task completion, and a
+false refusal. A single attack rate blends them.
 
 ## Research Contributions
 
@@ -54,8 +53,8 @@ the normalized request, not on the text that asked for it.
 
 ## Benchmarks
 
-Two benchmarks are kept. They do not share cases, protocol, or metric units. Do not add their
-episode counts together.
+Two benchmarks are kept. They do not share cases, protocol, or metrics. Do not add their
+episode counts.
 
 | Benchmark | Cases | What it measures |
 | --- | --- | --- |
@@ -111,8 +110,8 @@ Each cell gives attack success and benign task success.
 - Benign task success falls from 9/15 to 7/15. The refusals change the transcript, and a 1.5B
   model does not always find its way back to the task.
 
-Both suites give detail beyond these tables. See `docs/cross_model.md`,
-`docs/stack_matrix.md`, and `guardbench/RESULTS_v0.3.md`.
+These tables are summaries. See `docs/cross_model.md`, `docs/stack_matrix.md`, and
+`guardbench/RESULTS_v0.3.md` for detail.
 
 ## Quick Start
 
@@ -120,7 +119,7 @@ Both suites give detail beyond these tables. See `docs/cross_model.md`,
 pip install -r requirements.txt
 ```
 
-The execution benchmark needs the model checkpoints and a GPU. CPU runs work for the policy and
+The execution benchmark needs a GPU and the model checkpoints. CPU runs work for the policy and
 protocol checks.
 
 ```bash
