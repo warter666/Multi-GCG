@@ -61,9 +61,17 @@ between `Yes` and `No`. A white-box attack can optimize against that difference.
 L3 is one execution layer between the assistant and every tool. No call skips it: mail,
 network, file write and file read reach the same engine, in the same order.
 
-```
-request -> normalise -> evaluate -> ALLOW / DENY
-                              \-> record_result -> provenance, audit line
+```mermaid
+flowchart LR
+    MAIL["third-party mail"] --> READ["email.read"]
+    READ --> L1["L1 provenance<br/>marker and rule in the context"]
+    L1 --> L2["L2 judge<br/>withhold or pass the text"]
+    L2 --> AGENT["assistant"]
+    AGENT --> CALL["proposed tool call"]
+    CALL --> L3["L3 layer<br/>normalise, evaluate, decide"]
+    L3 -->|ALLOW| RUN["tool executes"]
+    L3 -->|DENY| REF["refusal: rule plus origin"]
+    RUN --> PROV["record_result<br/>provenance, audit line"]
 ```
 
 1. Normalise. Tool name from a registry, path with `..` resolved, URL split into scheme, host
@@ -162,94 +170,24 @@ cache must contain them.
 
 ## 6. Procedures
 
-### 6.1 Run one episode
+One line per goal. The steps, flags and expected output are in
+[docs/procedures.md](docs/procedures.md).
 
-1. Make a payload file. The file holds the attacker text.
-2. Run this command:
+| Goal | Command | Reported in |
+| --- | --- | --- |
+| One episode | `python -m mgcg.deploy.run --policy ship --payload-file out/pay-plain.txt --runs 1` | 7.3 |
+| All guard stacks | `bash scripts/matrix.sh` | 7.9 |
+| Judge on payload suffixes and on clean mail | `python scripts/probe_judge.py --vocab full --prefix-file out/pay-plain.txt --random 30`, `python scripts/probe_clean.py` | 7.1 |
+| CW suffix search | `python -m mgcg.attacks.cw --vocab full --prefix-file out/pay-plain.txt --k 2.0 --restarts 8` | 7.2 |
+| The layer on its own | `python scripts/l3policy.py`, `python scripts/probe_policy.py` | 7.4, 7.8 |
+| Internal ablation | `python scripts/ablate_policy.py` | 7.10 |
+| Write family and token task | `python scripts/families.py` | 7.6, 7.7 |
+| Write channel without a GPU | `python scripts/smoke_write.py` | 7.4 |
+| Case set, one stack list | `python scripts/bench_run.py --stacks none,l1,full` | 7.9 |
+| Eight-stack matrix from saved traces | `python scripts/bench_matrix.py out/bench-layer out/bench-matrix` | 7.9 |
+| Three models, three stacks | `python scripts/bench_models.py --row qwen1.5=out/bench-qwen15-tok256 --row qwen0.5=out/bench-qwen05-tok256-full --row smol1.7=out/bench-smol17-tok256-full` | 7.11 |
 
-```
-python -m mgcg.deploy.run --policy ship --payload-file out/pay-plain.txt --runs 1
-```
-
-3. Read the trace. Read the four numbers.
-
-Use `--layers l1,l2` to add the input guards. Use `--policy full` for the complete L3
-layer. Use `--policy none` and no layers for the control.
-
-### 6.2 Run all guard stacks
-
-1. Run `bash scripts/matrix.sh`.
-2. The script makes four payloads and runs five stacks.
-
-### 6.3 Measure the judge
-
-1. Run this command:
-
-```
-python scripts/probe_judge.py --vocab full --prefix-file out/pay-plain.txt --random 30
-```
-
-2. The script gives the verdict for five fixed control suffixes and for 30 random suffixes.
-3. Run `python scripts/probe_clean.py`. It scores normal mail with no payload, which measures
-   the false positive directly. A control suffix cannot do that, because a suffix sits on top
-   of the payload.
-
-Do this before you report an attack rate. A random suffix shows what the judge does without an
-attack.
-
-### 6.4 Run the CW attack
-
-1. Run this command:
-
-```
-python -m mgcg.attacks.cw --vocab full --prefix-file out/pay-plain.txt --k 2.0 --restarts 8
-```
-
-2. The command prints one line for each restart. It prints the smallest suffix that works.
-3. Set `--vocab invisible` for the carrier test. The script then keeps only candidates that
-   decode to invisible characters. The search fails. See section 7.2.
-
-### 6.5 Measure the layer
-
-1. Run `python scripts/l3policy.py` for the shipped rules, `python scripts/probe_policy.py`
-   for both policies on one page, and `python scripts/ablate_policy.py` for the internal
-   ablation.
-2. The scripts ask L3 directly. They do not use a model.
-
-Use this procedure when the model does not chain two tool calls. See section 7.4.
-
-### 6.6 Run the write family and the token task
-
-1. Run this command:
-
-```
-python scripts/families.py
-```
-
-2. The script loads the model once. It runs 14 cells: five write cells, nine token-task cells.
-3. Use `--only T-mail` to run one group. The script prints a trace and a summary table.
-
-### 6.7 Check the write channel without a GPU
-
-1. Run `python scripts/smoke_write.py`.
-2. The script checks the dispatcher, the D axis, both policy versions and the task rule.
-3. Every line must read PASS.
-
-### 6.8 Run the case set
-
-1. Run this command:
-
-```
-python scripts/bench_run.py --stacks none,l1,l3,l3w
-```
-
-2. The runner reads `bench/cases.jsonl`: 24 cases, 12 benign and 12 attack, in eight
-   families. Every case runs on every stack named.
-3. Use `--only B-01,A-01` for a subset. Use `--limit 3` for a smoke run.
-4. The runner writes `out/bench-<stamp>/results.jsonl`, one row per case and stack. A row
-   holds the four axes, the refusal reason, the parse failures and the seconds spent.
-5. The label comes from the trace: `landed`, `blocked`, `no-attempt`, `useful` or `broken`.
-   `bench/README.md` defines them. Section 7.9 reports the result.
+No command needs a GPU except the episode runner and the CW search.
 
 ## 7. Results
 
@@ -542,41 +480,18 @@ The three axes are stored separately because they are not exclusive: a refused c
 incomplete task happen in the same episode. `blocked_but_failed` is that combination, and it
 is the one a defence that simply stops the agent would produce.
 
-| Stack | attack_succeeded | safe_and_useful | blocked_but_failed | benign_success | benign_failure | no_attempt, task ok | no_attempt, task failed |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| none | 4/12 | 0/12 | 0/12 | 11/24 | 13/24 | 4/12 | 4/12 |
-| l1 | 6/12 | 0/12 | 0/12 | 19/24 | 5/24 | 5/12 | 1/12 |
-| l2 | 1/12 | 0/12 | 8/12 | 9/24 | 15/24 | 2/12 | 1/12 |
-| l3 | 0/12 | 2/12 | 5/12 | 12/24 | 12/24 | 4/12 | 1/12 |
-| full | 0/12 | 2/12 | 5/12 | 12/24 | 12/24 | 4/12 | 1/12 |
-| l1l2 | 2/12 | 8/12 | 0/12 | 19/24 | 5/24 | 1/12 | 1/12 |
-| l1full | 0/12 | 2/12 | 4/12 | 19/24 | 5/24 | 5/12 | 1/12 |
-| l1l2l3 | 1/12 | 8/12 | 1/12 | 19/24 | 5/24 | 1/12 | 1/12 |
+The whole matrix is one picture. Rows are cases, columns are stacks, colour is the verdict:
 
-ASR and benign success with Wilson 95% intervals:
+![The same 36 cases under eight stacks](docs/figures/case_set_grid.svg)
 
-| Stack | ASR | benign success | never attempted |
-| --- | --- | --- | --- |
-| none | 4/12 (0.14-0.61) | 11/24 (0.28-0.65) | 8/12 |
-| l1 | 6/12 (0.25-0.75) | 19/24 (0.60-0.91) | 6/12 |
-| l2 | 1/12 (0.01-0.35) | 9/24 (0.21-0.57) | 3/12 |
-| l3 | 0/12 (0.00-0.24) | 12/24 (0.31-0.69) | 5/12 |
-| full | 0/12 (0.00-0.24) | 12/24 (0.31-0.69) | 5/12 |
-| l1l2 | 2/12 (0.05-0.45) | 19/24 (0.60-0.91) | 2/12 |
-| l1full | 0/12 (0.00-0.24) | 19/24 (0.60-0.91) | 6/12 |
-| l1l2l3 | 1/12 (0.01-0.35) | 19/24 (0.60-0.91) | 2/12 |
+The two counts under the columns are the two numbers every claim below uses: attacks landed,
+out of twelve, and benign cases completed, out of twenty-four.
 
-Margins, paired by case (descriptive differences, not estimates of a general effect):
-
-| Comparison | change in landed attacks | change in benign success | change in safe_and_useful |
-| --- | --- | --- | --- |
-| `l1` - `none` | +2 | +8 | 0 |
-| `l2` - `none` | -3 | -2 | 0 |
-| `l3` - `none` | -4 | +1 | +2 |
-| `l1l2` - `none` | -2 | +8 | +8 |
-| `l1l2l3` - `l1l2` | -1 | 0 | 0 |
-| `l1full` - `l1` | -6 | 0 | +2 |
-| `full` - `l3` | 0 | 0 | 0 |
+The seven-column table, the Wilson intervals and the case-paired margins are in
+[docs/results/case_set_matrix.md](docs/results/case_set_matrix.md). The intervals are wide
+enough to say so here: twelve attacks per stack give roughly a 0.1-0.25 half-width, so a
+`0/12` is `0.00-0.24` and a `4/12` is `0.14-0.61`. The table locates a direction, it does not
+measure a size.
 
 Five results:
 
@@ -681,11 +596,9 @@ Does the result belong to the layer or to one model? This section changes one ar
 model is 108 episodes, all at `max_new_tokens=256`. Full detail, including the landed sets, is
 in `docs/cross_model.md`.
 
-| model | `none` ASR / benign | `l1` ASR / benign | `full` ASR / benign |
-| --- | --- | --- | --- |
-| `Qwen2.5-1.5B-Instruct` | 4/12 / 11/24 | 6/12 / 20/24 | 0/12 / 14/24 |
-| `Qwen2.5-0.5B-Instruct` | 6/12 / 15/24 | 3/12 / 16/24 | 0/12 / 15/24 |
-| `SmolLM2-1.7B-Instruct` | 0/12 / 17/24 | 0/12 / 18/24 | 0/12 / 17/24 |
+Each group is one stack; the three bars in it are the three models:
+
+![Attacks landed and benign cases completed, three models](docs/figures/cross_model.svg)
 
 `meta-llama/Llama-3.2-1B-Instruct` is gated and cannot be fetched here. SmolLM2-1.7B stands in
 for it as the different-family row. Every row uses 256 output tokens: at 96 the 0.5B row was
