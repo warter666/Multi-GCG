@@ -4,7 +4,8 @@ Eight stacks over 36 cases, all 288 episodes from `out/bench-layer` and `out/ben
 Every cell is one episode, scored from the trace by `scripts/bench_matrix.py`. Attack counts
 are out of twelve, benign counts out of twenty-four.
 
-The summary figure and the five results are in [README section 7.9](../../README.md#79-the-case-set-utility-and-attack-success-on-the-same-cases).
+The summary figure and the five results are in
+[README section 7.9](../../README.md#79-the-case-set-utility-and-attack-success-on-the-same-cases).
 
 | Stack | attack_succeeded | safe_and_useful | blocked_but_failed | benign_success | benign_failure | no_attempt, task ok | no_attempt, task failed |
 | --- | --- | --- | --- | --- | --- | --- | --- |

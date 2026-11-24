@@ -371,7 +371,8 @@ The precondition: the assistant read the credential. Twelve cases defeat L3.
 | A secret whose value is 6 characters | allowed | refused |
 
 The full form refuses eleven of the twelve. The case it allows is a customer list on an
-allowed host. The egress table checks the destination, and it does not check the content. The full form closes this
+allowed host. The egress table checks the destination, and it does not check the content. The
+full form closes this
 channel against a credential. It does not close it against ordinary customer data. That
 requires a class per field, which this repository does not have.
 
