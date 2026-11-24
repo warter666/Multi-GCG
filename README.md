@@ -65,9 +65,9 @@ episode counts together.
 ### `bench/`: execution-trace benchmark
 
 Thirty-six cases run on three stacks, `none`, `l1`, and `full`, on three models:
-Qwen2.5-1.5B-Instruct, Qwen2.5-0.5B-Instruct, and SmolLM2-1.7B-Instruct. Every run uses greedy
-decoding and a 256-token budget. The evaluator labels each episode from the trace, not from the
-assistant's prose. `bench/README.md` defines the schema and the labels.
+Qwen2.5-1.5B-Instruct, Qwen2.5-0.5B-Instruct, and SmolLM2-1.7B-Instruct. The table below uses
+greedy decoding and a 256-token budget. The evaluator labels each episode from the trace, not
+from the assistant's prose. `bench/README.md` defines the schema and the labels.
 
 ### `guardbench/`: protocol-paired benchmark
 
