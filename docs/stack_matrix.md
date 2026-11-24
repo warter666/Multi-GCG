@@ -69,7 +69,7 @@ The two counts under the columns are the two numbers every claim below uses: att
 out of twelve, and benign cases completed, out of twenty-four.
 
 The seven-column table, the Wilson intervals and the case-paired margins are in
-[docs/results/case_set_matrix.md](docs/results/case_set_matrix.md). The intervals are wide
+[docs/results/case_set_matrix.md](results/case_set_matrix.md). The intervals are wide
 enough to say so here: twelve attacks per stack give roughly a 0.1-0.25 half-width, so a
 `0/12` is `0.00-0.24` and a `4/12` is `0.14-0.61`. The table locates a direction, it does not
 measure a size.
