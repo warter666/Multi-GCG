@@ -30,9 +30,6 @@ untrusted mail or file
 tool-using agent
         |
         v
-tool request
-        |
-        v
 PolicyEngine (L3): normalize, authorize, audit
         |
         +-- ALLOW --> tool call --> result --> provenance update
@@ -80,7 +77,12 @@ and the metric definitions.
 
 ### `bench/` across three models, 256 tokens
 
-Each cell gives attack success and benign task success.
+Each cell gives attack success and benign task success. The grid below is a different run:
+all eight stacks on Qwen2.5-1.5B at 96 tokens. Each row is one case, each column one stack, and
+colour is the verdict.
+
+![36 cases against eight stacks](docs/figures/case_set_grid_light.svg#gh-light-mode-only)
+![36 cases against eight stacks](docs/figures/case_set_grid_dark.svg#gh-dark-mode-only)
 
 | Model | `none` | `l1` | `full` |
 | --- | ---: | ---: | ---: |
@@ -110,17 +112,13 @@ Each cell gives attack success and benign task success.
 - Benign task success falls from 9/15 to 7/15. The refusals change the transcript, and a 1.5B
   model does not always find its way back to the task.
 
-These tables are summaries. See `docs/cross_model.md`, `docs/stack_matrix.md`, and
-`guardbench/RESULTS_v0.3.md` for detail.
-
 ## Quick Start
 
 ```bash
 pip install -r requirements.txt
 ```
 
-The execution benchmark needs a GPU and the model checkpoints. CPU runs work for the policy and
-protocol checks.
+The execution benchmark needs a GPU. The policy and protocol checks run on a CPU.
 
 ```bash
 # execution benchmark, three stacks
@@ -133,8 +131,7 @@ python -m guardbench.run_suite --configs off,full,engine
 python scripts/guardbench_report.py out/guardbench-v03
 
 # the layer alone, no model
-python scripts/probe_policy.py
-python scripts/ablate_policy.py
+python scripts/probe_policy.py && python scripts/ablate_policy.py
 ```
 
 ## Limitations
